@@ -22,6 +22,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include "setupwizard.h"
+#include "../core/fonts.h"
 #include <QSettings>
 #include <QSpinBox>
 #include <QStandardPaths>
@@ -255,6 +256,10 @@ void MainWindow::buildMenus()
     f->addSeparator();
     act(f, tr("Import..."), "Ctrl+I", [this] { project->importDialog(); });
     act(f, tr("Import Page"), "Ctrl+Shift+I", [this] { showPage(PageImport); });
+    act(f, tr("Import Font..."), "", [this] {
+        const QStringList files = QFileDialog::getOpenFileNames(this, tr("Import Font"), {}, tr("Fonts (*.ttf *.otf *.ttc *.otc *.woff *.woff2)"));
+        if (!files.isEmpty()) project->importFiles(files);
+    });
     f->addSeparator();
     act(f, tr("Export Media..."), "Ctrl+M", [this] { showPage(PageExport); });
     act(f, tr("Export Frame..."), "Ctrl+Shift+E", [this] { activeMonitor()->exportFrame(); });
@@ -396,7 +401,7 @@ void MainWindow::buildMenus()
     act(h, tr("Setup Wizard..."), "", [] { Setup::run(false); });
     act(h, tr("About Open Editor"), "", [this] {
         QMessageBox::about(this, tr("About Open Editor"),
-                           tr("<b>Open Editor 2.1</b><br>A non-linear video editor built with Qt.<br><br>"
+                           tr("<b>Open Editor %1</b><br>A non-linear video editor built with Qt.<br><br>").arg(QApplication::applicationVersion()) + tr(
                               "Decoding and encoding by FFmpeg (separate executable).<br>Icons: Tabler Icons, MIT License."));
     });
 }
@@ -554,6 +559,9 @@ void MainWindow::openProject(const QString &given)
     int off = 0;
     for (auto &m : PRJ->s.media) off += m.offline;
     if (off) QMessageBox::warning(this, tr("Open Project"), tr("%n media file(s) could not be found and are offline.", "", off));
+    const QStringList fonts = Fonts::missingFamilies(PRJ->s);
+    if (!fonts.isEmpty())
+        QMessageBox::warning(this, tr("Open Project"), tr("Titles in this project use fonts that are not on this computer:\n%1\n\nThey show in a substitute font until you import the font files (File > Import Font).").arg(fonts.join(", ")));
     showPage(PageEdit);
     updateTitle();
 }

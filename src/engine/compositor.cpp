@@ -58,7 +58,7 @@ QImage Compositor::source(const ProjectState &st, const Sequence &q, const Clip 
     const int cw = evenDim(q.w * scale), ch = evenDim(q.h * scale);
     native = QSizeF(q.w, q.h);
     auto gen = [&](const QColor &col) { QImage i(cw, ch, QImage::Format_ARGB32_Premultiplied); i.fill(col); return i; };
-    if (c.kind == MediaKind::Text) return ImageFx::renderText(c.text, cw, ch, scale);
+    if (c.kind == MediaKind::Text) return ImageFx::renderText(c.text, cw, ch, scale, ImageFx::textAnimAt(c.text, (f - c.start) / q.fps(), c.dur / q.fps()));
     if (c.kind == MediaKind::Adjustment) return canvas ? canvas->copy() : QImage();
     const MediaItem *m = st.mediaById(c.mediaId);
     if (!m) return {};
@@ -102,6 +102,7 @@ void Compositor::drawClip(QPainter &p, QImage &canvas, const ProjectState &st, c
     ctx.kt = kt;
     ctx.scale = scale;
     ctx.seconds = double(f) / q.fps();
+    ctx.srcSec = c.sourceTime(f, q.fps());
     runEffects(c, img, ctx);
     const Effect *mo = c.effect("motion"), *op = c.effect("opacity");
     double opacity = op && op->enabled ? op->val("opacity", kt, 100) / 100.0 : 1.0;

@@ -54,7 +54,7 @@ private:
     void updateSummary();
     void start();
     QLineEdit *fileName, *folder;
-    QComboBox *format, *preset, *speed, *range;
+    QComboBox *format, *preset, *speed, *range, *loud;
     QSpinBox *wEd, *hEd, *crf, *kbps, *aKbps;
     QCheckBox *withV, *withA, *sidecar;
     QLabel *preview, *summary, *status;

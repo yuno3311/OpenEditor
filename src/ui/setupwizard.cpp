@@ -66,6 +66,7 @@ Setup::Status Setup::check()
     }
     s.ffprobeOk = runTool(s.ffprobe, {"-hide_banner", "-version"}, &out);
     s.whisper = s.ffmpegOk && runTool(s.ffmpeg, {"-hide_banner", "-filters"}, &out) && out.contains(QRegularExpression("\\swhisper\\s"));
+    s.encoders = s.ffmpegOk && runTool(s.ffmpeg, {"-hide_banner", "-encoders"}, &out) && out.contains(QRegularExpression("\\slibx264\\s")) && out.contains(QRegularExpression("\\saac\\s"));
     for (auto &n : Analysis::whisperModels()) s.model |= QFileInfo::exists(Analysis::whisperModelPath(n));
     s.bridge = QFileInfo::exists(QCoreApplication::applicationDirPath() + "/oe-mcp.exe");
     return s;
@@ -73,7 +74,16 @@ Setup::Status Setup::check()
 
 bool Setup::needed()
 {
-    return !QSettings().value("setup/done", false).toBool() || CACHE->ffmpeg().isEmpty() || CACHE->ffprobe().isEmpty();
+    QSettings s;
+    return !s.value("setup/done", false).toBool() || s.value("setup/version").toString() != QCoreApplication::applicationVersion()
+        || CACHE->ffmpeg().isEmpty() || CACHE->ffprobe().isEmpty();
+}
+
+void Setup::markDone()
+{
+    QSettings s;
+    s.setValue("setup/done", true);
+    s.setValue("setup/version", QCoreApplication::applicationVersion());
 }
 
 bool Setup::useFfmpegDir(const QString &dir)
@@ -192,7 +202,7 @@ public:
         g->setColumnStretch(2, 1);
         g->setHorizontalSpacing(14);
         g->setVerticalSpacing(8);
-        for (int i = 0; i < 5; ++i) {
+        for (int i = 0; i < 6; ++i) {
             for (int c = 0; c < 3; ++c) { rows[i][c] = new QLabel(this); g->addWidget(rows[i][c], i, c); }
             rows[i][2]->setWordWrap(true);
             rows[i][2]->setStyleSheet("color:#8a8a8a;");
@@ -246,6 +256,7 @@ public:
         row(2, tr("Whisper in FFmpeg"), st.whisper, false, st.whisper ? tr("Transcription is available") : tr("Without it, transcription does not work. Download FFmpeg to get it."));
         row(3, tr("Speech model"), st.model, false, st.model ? tr("Installed") : tr("Choose one on the next page"));
         row(4, tr("MCP bridge"), st.bridge, false, st.bridge ? tr("Installed") : tr("oe-mcp.exe is missing. Reinstall Open Editor if you use MCP clients."));
+        row(5, tr("Export encoders"), st.encoders, false, st.encoders ? tr("H.264 and AAC are available") : tr("This FFmpeg lacks libx264 or AAC, so the default H.264 export fails. Download FFmpeg to fix it."));
         int missing = !st.ffmpegOk + !st.ffprobeOk;
         banner->setText(missing ? tr("<span style='color:%1'><b>%2 required item(s) missing.</b></span> Open Editor cannot import, play or export media until FFmpeg and FFprobe are ready. Download them or add them below to continue.").arg(kBad).arg(missing)
                                 : tr("<span style='color:%1'><b>Everything required is ready.</b></span>").arg(kGood));
@@ -285,7 +296,7 @@ public:
         refresh();
     }
     Setup::Status st;
-    QLabel *banner, *note, *rows[5][3];
+    QLabel *banner, *note, *rows[6][3];
     QPushButton *download, *locate, *recheck, *stop;
     QProgressBar *bar;
     FfmpegInstaller *job = nullptr;
@@ -373,8 +384,16 @@ public:
         if (!s.whisper) later << tr("Transcription needs an FFmpeg build with the whisper filter.");
         if (!s.model) later << tr("A speech model downloads the first time you transcribe.");
         if (!s.bridge) later << tr("MCP clients need oe-mcp.exe: reinstall Open Editor to restore it.");
+        if (!s.encoders) later << tr("H.264 export needs an FFmpeg build with libx264 and AAC.");
+        const QStringList news = {
+            tr("<b>Enhance Speech</b>, <b>DeNoise</b>, <b>DeEsser</b>, <b>DeHum</b>, <b>Noise Gate</b> and <b>Chorus/Flanger</b> audio effects"),
+            tr("<b>Auto Ducking</b> and <b>Match Loudness</b> in the AI menu, and a loudness target on the Export page"),
+            tr("<b>Remove Filler Words</b> from the transcript and the footage"),
+            tr("<b>Import fonts</b> (File > Import Font) and many more title options: weights, gradients, glow, rounded backgrounds, style presets and in/out animations"),
+            tr("<b>Warp Stabilizer</b>, plus Leave Color, Color Key, Find Edges, Emboss, Twirl, Spherize, Replicate, Linear Wipe, Gradient Ramp and Strobe Light")};
         text->setText(tr("Open Editor is ready to use.") + (later.isEmpty() ? QString() : "<br><br>" + tr("Still optional:") + "<ul><li>" + later.join("</li><li>") + "</li></ul>")
-                      + "<br>" + tr("You can run this wizard again from Help > Setup Wizard."));
+                      + "<br><br>" + tr("New in %1:").arg(QCoreApplication::applicationVersion()) + "<ul><li>" + news.join("</li><li>") + "</li></ul>"
+                      + tr("You can run this wizard again from Help > Setup Wizard."));
     }
     QLabel *text;
 };
@@ -383,7 +402,7 @@ class Wizard : public QWizard {
 public:
     Wizard()
     {
-        setWindowTitle(tr("Open Editor Setup"));
+        setWindowTitle(tr("Open Editor %1 Setup").arg(QCoreApplication::applicationVersion()));
         setWizardStyle(QWizard::ClassicStyle);
         setTitleFormat(Qt::RichText);
         setOption(QWizard::NoBackButtonOnStartPage);
@@ -402,7 +421,7 @@ bool Setup::run(bool atStartup)
 {
     Wizard w;
     if (w.exec() == QDialog::Accepted) {
-        QSettings().setValue("setup/done", true);
+        markDone();
         return true;
     }
     CACHE->reloadTools();
@@ -466,6 +485,7 @@ int Setup::selfTest(const QStringList &args)
     expect(!w.deps->job && next->isEnabled(), "download fills the gap and Next unlocks");
     expect(CACHE->ffmpeg().startsWith(MediaCache::downloadedToolsDir()), "the downloaded FFmpeg is the one in use");
     expect(check().whisper, "the downloaded FFmpeg has the whisper filter");
+    expect(check().encoders, "the downloaded FFmpeg has the H.264 and AAC encoders");
     shot("3_ready");
     w.next();
     shot("4_model");
@@ -474,8 +494,12 @@ int Setup::selfTest(const QStringList &args)
     w.button(QWizard::FinishButton)->click();
     pump(100);
     expect(w.result() == QDialog::Accepted, "wizard finishes");
-    QSettings().setValue("setup/done", true);
+    markDone();
     expect(!needed(), "wizard is not needed again");
+    QSettings().setValue("setup/version", "1.0.0");
+    expect(needed(), "wizard comes back once after an upgrade");
+    markDone();
+    expect(!needed(), "and not again for the same version");
     QFile::remove(MediaCache::downloadedToolsDir() + "/ffmpeg.exe");
     CACHE->reloadTools();
     expect(needed(), "wizard comes back when FFmpeg is removed later");

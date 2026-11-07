@@ -97,17 +97,24 @@ class GraphicsPanel : public Panel {
     Q_OBJECT
 public:
     explicit GraphicsPanel(QWidget *p = nullptr);
+    static QStringList animationNames();
+    void importFont();
 private:
     void load();
     void store(const std::function<void(TextStyle &)> &f, const QString &label);
+    void applyPreset(int index);
+    void savePreset();
+    void reloadPresets();
     int clipId = 0;
     bool loading = false;
-    QWidget *form;
-    QLabel *empty;
+    QWidget *form, *scrollArea;
+    QLabel *empty, *fontNote;
     QPlainTextEdit *text;
     class QFontComboBox *font;
-    ScrubValue *size, *tracking, *leading, *strokeW, *shadowD, *shadowB;
-    QToolButton *bold, *ital, *under, *al[3];
-    ColorSwatch *fill, *strokeC, *shadowC, *bgC;
-    class QCheckBox *stroke, *shadow, *bg;
+    class QComboBox *preset, *weight, *caps, *valign, *fillType, *strokePos, *animIn, *animOut;
+    class QPushButton *delPre;
+    ScrubValue *size, *tracking, *leading, *skew, *boxW, *gradA, *strokeW, *shadowD, *shadowA, *shadowB, *glowS, *glowK, *bgPad, *bgR, *animInS, *animOutS;
+    QToolButton *ital, *under, *strike, *al[4];
+    ColorSwatch *fill, *fill2, *strokeC, *shadowC, *glowC, *bgC;
+    class QCheckBox *kern, *stroke, *shadow, *glow, *bg, *bgLine;
 };

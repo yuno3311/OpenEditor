@@ -1,4 +1,5 @@
 #include "monitor.h"
+#include "../engine/imagefx.h"
 #include "../core/mediacache.h"
 #include "../core/ops.h"
 #include "../core/project.h"
@@ -63,16 +64,7 @@ QTransform ViewerWidget::clipTransform(const Clip &c, const MediaItem *m, Frame 
 QRectF ViewerWidget::contentRect(const Clip &c, const QSizeF &n) const
 {
     if (c.kind != MediaKind::Text) return QRectF(QPointF(0, 0), n);
-    QFont f(c.text.font);
-    f.setPixelSize(qMax(1, int(c.text.size)));
-    f.setBold(c.text.bold);
-    f.setItalic(c.text.italic);
-    QFontMetricsF fm(f);
-    const QStringList lines = c.text.text.split('\n');
-    double w = 0;
-    for (auto &l : lines) w = qMax(w, fm.horizontalAdvance(l));
-    double h = (fm.height() + c.text.leading) * lines.size();
-    return QRectF((n.width() - w) / 2 - 8, (n.height() - h) / 2 - 4, w + 16, h + 8);
+    return ImageFx::textBounds(c.text, int(n.width()), int(n.height())).adjusted(-8, -4, 8, 4);
 }
 
 void ViewerWidget::paintOverlay(QPainter &p)

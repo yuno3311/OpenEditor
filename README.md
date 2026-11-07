@@ -23,6 +23,43 @@ download a pinned, hash-checked FFmpeg into the app data folder or use a folder 
 time from Help > Setup Wizard. `OpenEditor --setup-test <outdir>` tests it, and must run with FFmpeg
 neither beside the executable nor on PATH.
 
+## Titles and fonts
+
+- **Import fonts** (.ttf, .otf, .ttc, .otc, .woff, .woff2) from File > Import Font, the Graphics
+  panel, or by importing the file like media. Imported fonts are copied to the app data `Fonts`
+  folder and load at every start. Opening a project whose titles use fonts this computer lacks
+  names them, and the Graphics panel marks a substituted font.
+- **Graphics panel**: weight (Thin 100 to Black 900), italic, underline, strikethrough, ALL CAPS,
+  Small Caps, lowercase, Title Case, tracking, kerning, skew, left/center/right/justify, top/middle/
+  bottom, leading, wrap width, solid or linear/radial gradient fill, stroke inside/center/outside,
+  shadow with angle, glow, background with padding, rounded corners and per-line boxes.
+- **Animation**: in and out, each Fade, Typewriter, Slide Up, Slide Down, Pop or Wipe, with a length.
+- **Style presets**: ten built-in looks, and your own saved from the current title.
+- **AI / MCP tools**: import_font, list_fonts, set_text_style, list_text_presets, apply_text_preset;
+  add_title takes preset and style.
+- Titles from older projects render exactly as before: `oe_text_test` compares them with reference
+  renders in `tests/data/text_ref`, and measures each option.
+
+## New in 2.0.0
+
+- **Audio effects**: Enhance Speech (noise reduction, EQ, de-essing, compression and levelling in
+  one control), DeNoise, DeEsser, DeHum, Noise Gate, Chorus/Flanger. They run in playback and export.
+  Enhance Speech is signal processing, not a neural model: it works offline and on any voice.
+  DeNoise and Enhance Speech delay their clip by 512 samples (about 11 ms).
+- **AI menu**: Enhance Speech on Selected Clips, Auto Ducking (volume keyframes on music under
+  dialogue), Match Loudness (EBU R128 / BS.1770 LUFS), Remove Filler Words (um, uh, hmm, 음, 어),
+  Warp Stabilizer on Selected Clip (position only; rotation and rolling shutter are not corrected).
+- **Export**: a loudness target (-14, -16, -23 or -24 LUFS); peaks stay under -1 dBFS.
+- **Video effects**: Warp Stabilizer, Leave Color, Color Key, Find Edges, Emboss, Twirl, Spherize,
+  Replicate, Linear Wipe, Gradient Ramp, Strobe Light.
+- **MCP / assistant tools**: measure_loudness, match_loudness, enhance_speech, auto_duck,
+  remove_filler_words, stabilize_clip, and loudness_lufs on export_sequence.
+- The setup wizard reopens once after an upgrade and also checks the H.264 and AAC encoders.
+- The window, executable and installer share the app icon (`src/app.ico`, made with `--write-icon`).
+
+Tests: `oe_v2_test` measures each new effect against what it should do, and
+`OpenEditor --v2-test <outdir>` drives every new tool in the real window and checks the export.
+
 ## Transcription and text-based editing
 
 The **Text** workspace transcribes the sequence on this computer with Whisper. The default model is

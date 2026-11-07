@@ -258,8 +258,14 @@ static QJsonObject textJ(const TextStyle &t)
             {"align", t.align}, {"fill", colorStr(t.fill)}, {"stroke", t.stroke}, {"strokeC", colorStr(t.strokeColor)},
             {"strokeW", t.strokeWidth}, {"shadow", t.shadow}, {"shadowC", colorStr(t.shadowColor)},
             {"shadowD", t.shadowDist}, {"shadowB", t.shadowBlur}, {"bg", t.background}, {"bgC", colorStr(t.bgColor)},
-            {"track", t.tracking}, {"lead", t.leading}};
+            {"track", t.tracking}, {"lead", t.leading},
+            {"weight", t.weight}, {"strike", t.strike}, {"kern", t.kerning}, {"caps", t.caps}, {"skew", t.skew}, {"valign", t.valign},
+            {"box", t.boxWidth}, {"fillType", t.fillType}, {"fill2", colorStr(t.fill2)}, {"gradA", t.gradAngle}, {"strokePos", t.strokePos},
+            {"shadowA", t.shadowAngle}, {"glow", t.glow}, {"glowC", colorStr(t.glowColor)}, {"glowS", t.glowSize}, {"glowK", t.glowStrength},
+            {"bgPad", t.bgPad}, {"bgR", t.bgRadius}, {"bgLine", t.bgPerLine}, {"animIn", t.animIn}, {"animOut", t.animOut},
+            {"animInS", t.animInSec}, {"animOutS", t.animOutSec}};
 }
+QJsonObject textStyleToJson(const TextStyle &t) { return textJ(t); }
 static TextStyle textF(const QJsonObject &o)
 {
     TextStyle t;
@@ -271,7 +277,26 @@ static TextStyle textF(const QJsonObject &o)
     t.shadowColor = QColor(o["shadowC"].toString("#b4000000")); t.shadowDist = o["shadowD"].toDouble(6);
     t.shadowBlur = o["shadowB"].toDouble(8); t.background = o["bg"].toBool();
     t.bgColor = QColor(o["bgC"].toString("#a0000000")); t.tracking = o["track"].toDouble(); t.leading = o["lead"].toDouble();
+    t.weight = qBound(0, o["weight"].toInt(0), 1000); t.strike = o["strike"].toBool(); t.kerning = o["kern"].toBool(true);
+    t.caps = qBound(0, o["caps"].toInt(), 4); t.skew = qBound(-60.0, o["skew"].toDouble(), 60.0); t.valign = qBound(0, o["valign"].toInt(1), 2);
+    t.boxWidth = qMax(0.0, o["box"].toDouble()); t.fillType = qBound(0, o["fillType"].toInt(), 2);
+    t.fill2 = QColor(o["fill2"].toString(colorStr(t.fill2))); t.gradAngle = o["gradA"].toDouble(180);
+    t.strokePos = qBound(0, o["strokePos"].toInt(), 2); t.shadowAngle = o["shadowA"].toDouble(135); t.glow = o["glow"].toBool();
+    t.glowColor = QColor(o["glowC"].toString(colorStr(t.glowColor))); t.glowSize = qMax(0.0, o["glowS"].toDouble(14));
+    t.glowStrength = qBound(0.0, o["glowK"].toDouble(1), 3.0); t.bgPad = o["bgPad"].toDouble(-1); t.bgRadius = qMax(0.0, o["bgR"].toDouble());
+    t.bgPerLine = o["bgLine"].toBool(); t.animIn = qBound(0, o["animIn"].toInt(), int(TextAnimCount) - 1);
+    t.animOut = qBound(0, o["animOut"].toInt(), int(TextAnimCount) - 1);
+    t.animInSec = qBound(0.0, o["animInS"].toDouble(.6), 60.0); t.animOutSec = qBound(0.0, o["animOutS"].toDouble(.6), 60.0);
+    // Before 2.1 the shadow always fell at (d, d), which is distance d * sqrt 2 at 135 degrees.
+    if (o.contains("shadowD") && !o.contains("shadowA")) t.shadowDist *= std::sqrt(2.0);
     return t;
+}
+TextStyle textStyleFromJson(const QJsonObject &o)
+{
+    // Starts from the defaults rather than textF's legacy reading of an absent key.
+    QJsonObject full = textJ(TextStyle());
+    for (auto it = o.begin(); it != o.end(); ++it) full[it.key()] = it.value();
+    return textF(full);
 }
 QJsonObject clipToJson(const Clip &c)
 {

@@ -1,4 +1,5 @@
 #include "projectpanel.h"
+#include "../core/fonts.h"
 #include "../core/mediacache.h"
 #include "../core/project.h"
 #include <QApplication>
@@ -334,8 +335,23 @@ void ProjectPanel::importDialog()
     if (!f.isEmpty()) importFiles(f);
 }
 
-void ProjectPanel::importFiles(const QStringList &paths)
+void ProjectPanel::importFiles(const QStringList &given)
 {
+    QStringList paths, fams, fontErrs;
+    for (auto &p : given) {
+        if (!Fonts::isFontFile(p)) { paths << p; continue; }
+        QString e;
+        QStringList f = Fonts::import(p, &e);
+        if (f.isEmpty()) fontErrs << e; else fams << f;
+    }
+    if (!fams.isEmpty() || !fontErrs.isEmpty()) {
+        fams.removeDuplicates();
+        QString msg = fams.isEmpty() ? QString() : tr("Fonts added, ready in the Graphics panel: %1").arg(fams.join(", "));
+        if (!fontErrs.isEmpty()) QMessageBox::warning(this, tr("Import Font"), fontErrs.join('\n'));
+        else QMessageBox::information(this, tr("Import Font"), msg);
+        emit PRJ->changed();
+    }
+    if (paths.isEmpty()) return;
     if (!CACHE->available()) {
         QMessageBox::warning(this, tr("Import"), tr("ffmpeg was not found. Install ffmpeg and make sure it is on PATH, or place ffmpeg.exe and ffprobe.exe next to OpenEditor.exe."));
         return;

@@ -1,0 +1,120 @@
+{
+    "classes": [
+        {
+            "className": "Transcriber",
+            "lineNumber": 33,
+            "object": true,
+            "qualifiedClassName": "Transcriber",
+            "signals": [
+                {
+                    "access": "public",
+                    "arguments": [
+                        {
+                            "name": "fraction",
+                            "type": "double"
+                        },
+                        {
+                            "name": "status",
+                            "type": "QString"
+                        }
+                    ],
+                    "index": 0,
+                    "lineNumber": 39,
+                    "name": "progress",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "arguments": [
+                        {
+                            "name": "captions",
+                            "type": "QList<Caption>"
+                        }
+                    ],
+                    "index": 1,
+                    "lineNumber": 40,
+                    "name": "finishedOk",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "arguments": [
+                        {
+                            "name": "why",
+                            "type": "QString"
+                        }
+                    ],
+                    "index": 2,
+                    "lineNumber": 41,
+                    "name": "failed",
+                    "returnType": "void"
+                }
+            ],
+            "superClasses": [
+                {
+                    "access": "public",
+                    "name": "QThread"
+                }
+            ]
+        },
+        {
+            "className": "ModelDownloader",
+            "lineNumber": 53,
+            "object": true,
+            "qualifiedClassName": "ModelDownloader",
+            "signals": [
+                {
+                    "access": "public",
+                    "arguments": [
+                        {
+                            "name": "got",
+                            "type": "qint64"
+                        },
+                        {
+                            "name": "total",
+                            "type": "qint64"
+                        }
+                    ],
+                    "index": 0,
+                    "lineNumber": 59,
+                    "name": "progress",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "arguments": [
+                        {
+                            "name": "path",
+                            "type": "QString"
+                        }
+                    ],
+                    "index": 1,
+                    "lineNumber": 60,
+                    "name": "finished",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "arguments": [
+                        {
+                            "name": "why",
+                            "type": "QString"
+                        }
+                    ],
+                    "index": 2,
+                    "lineNumber": 61,
+                    "name": "failed",
+                    "returnType": "void"
+                }
+            ],
+            "superClasses": [
+                {
+                    "access": "public",
+                    "name": "QObject"
+                }
+            ]
+        }
+    ],
+    "inputFile": "analysis.h",
+    "outputRevision": 69
+}

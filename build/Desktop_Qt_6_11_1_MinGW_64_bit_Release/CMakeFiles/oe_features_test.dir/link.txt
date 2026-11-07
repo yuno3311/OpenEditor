@@ -1,0 +1,3 @@
+C:\Qt\Tools\CMake_64\bin\cmake.exe -E rm -f CMakeFiles\oe_features_test.dir/objects.a
+C:\Qt\Tools\mingw1310_64\bin\ar.exe qc CMakeFiles\oe_features_test.dir/objects.a @CMakeFiles\oe_features_test.dir\objects1.rsp
+C:\Qt\Tools\mingw1310_64\bin\g++.exe -O3 -DNDEBUG -Wl,--whole-archive CMakeFiles\oe_features_test.dir/objects.a -Wl,--no-whole-archive -o oe_features_test.exe -Wl,--out-implib,liboe_features_test.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\oe_features_test.dir\linkLibs.rsp

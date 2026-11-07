@@ -53,6 +53,10 @@ private:
     void createMulticam();
     void mcpDialog();
     void silenceDialog();
+    void duckDialog();
+    void loudnessDialog();
+    void watchJob(const QJsonObject &startResult, const QString &label);
+    QList<int> selectedClipIds() const;
     QAction *proxyAction = nullptr;
     void nextMarker(bool fwd);
     void loadShortcuts();

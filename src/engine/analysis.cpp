@@ -1,5 +1,6 @@
 #include "analysis.h"
 #include "../core/mediacache.h"
+#include "audiodsp.h"
 #include "audiomix.h"
 #include <QDir>
 #include <QElapsedTimer>
@@ -90,6 +91,129 @@ double measureRmsDb(const ProjectState &st, int seqId)
         if (s / buf.size() > 1e-5) { sum += s; n += buf.size(); }
     }
     return n ? 10 * std::log10(sum / n) : -96;
+}
+
+double measureLufs(const ProjectState &st, int seqId)
+{
+    auto *q = st.seqById(seqId);
+    if (!q) return -99;
+    AudioMixer mix;
+    mix.tapMeters = false;
+    mix.setState(std::make_shared<const ProjectState>(st), seqId);
+    const qint64 total = qint64(seqLen(st, seqId) * (MediaCache::kRate / q->fps()));
+    const int blk = 4800;
+    QVector<float> buf(blk * 2);
+    Dsp::LoudnessMeter meter;
+    for (qint64 p = 0; p < total; p += blk) {
+        int n = int(qMin<qint64>(blk, total - p));
+        mix.mix(buf.data(), n, p);
+        meter.add(buf.constData(), n);
+    }
+    return meter.integrated();
+}
+
+QVector<FrameRange> dialogueRegions(const ProjectState &st0, int seqId, const QSet<int> &duck, double thresholdDb)
+{
+    QVector<FrameRange> out;
+    ProjectState st = st0;
+    Sequence *q = st.seqById(seqId);
+    if (!q) return out;
+    for (auto &t : q->audio) if (duck.contains(t.id)) t.muted = true;
+    for (auto &t : q->audio) t.solo = false;
+    AudioMixer mix;
+    mix.tapMeters = false;
+    mix.setState(std::make_shared<const ProjectState>(st), seqId);
+    const double spf = MediaCache::kRate / q->fps();
+    const qint64 total = qint64(q->duration() * spf);
+    const int win = MediaCache::kRate / 50;
+    const qint64 bridge = MediaCache::kRate / 2, shortest = MediaCache::kRate / 5; // close 0.5 s gaps, ignore clicks under 0.2 s
+    const double th = std::pow(10.0, thresholdDb / 20);
+    QVector<float> buf(win * 2);
+    QVector<QPair<qint64, qint64>> runs;
+    qint64 from = -1;
+    for (qint64 p = 0; p < total; p += win) {
+        mix.mix(buf.data(), win, p);
+        double s = 0;
+        for (float v : buf) s += double(v) * v;
+        bool on = std::sqrt(s / buf.size()) > th;
+        if (on && from < 0) from = p;
+        if (!on && from >= 0) { runs << qMakePair(from, p); from = -1; }
+    }
+    if (from >= 0) runs << qMakePair(from, total);
+    QVector<QPair<qint64, qint64>> merged;
+    for (auto r : runs) {
+        if (!merged.isEmpty() && r.first - merged.last().second < bridge) merged.last().second = r.second;
+        else merged << r;
+    }
+    for (auto r : merged)
+        if (r.second - r.first >= shortest) out << qMakePair(Frame(r.first / spf), Frame(std::ceil(r.second / spf)));
+    return out;
+}
+
+int applyDucking(Sequence &q, const QSet<int> &duck, QVector<FrameRange> regions, double duckDb, Frame fade)
+{
+    std::sort(regions.begin(), regions.end());
+    QVector<FrameRange> merged;
+    for (auto r : regions) {
+        // Dips closer than two fades would only bob back up, so they become one.
+        if (!merged.isEmpty() && r.first - merged.last().second <= 2 * fade) merged.last().second = qMax(merged.last().second, r.second);
+        else merged << r;
+    }
+    int dips = 0;
+    for (auto &t : q.audio) {
+        if (!duck.contains(t.id)) continue;
+        for (auto &c : t.clips) {
+            Effect *vol = c.effect("volume");
+            Param *lv = vol ? vol->find("level") : nullptr;
+            if (!lv) continue;
+            const Param orig = *lv;
+            auto base = [&](Frame f) { return orig.animated && !orig.keys.isEmpty() ? orig.at(c.kt(f)) : orig.value; };
+            for (auto r : merged) {
+                if (r.first >= c.end() || r.second <= c.start) continue;
+                if (!lv->animated || lv->keys.isEmpty()) {
+                    lv->animated = true;
+                    lv->keys.clear();
+                    lv->setKey(c.kt(c.start), orig.value);
+                    lv->setKey(c.kt(c.end()), orig.value);
+                }
+                const Frame a0 = r.first - fade, b1 = r.second + fade;
+                for (int k = lv->keys.size() - 1; k >= 0; --k)
+                    if (lv->keys[k].t > c.kt(a0) && lv->keys[k].t < c.kt(b1)) lv->keys.removeAt(k);
+                if (a0 > c.start) lv->setKey(c.kt(a0), base(a0));
+                const Frame a1 = qMax(c.start, r.first), b0 = qMin(c.end(), r.second);
+                lv->setKey(c.kt(a1), base(a1) + duckDb);
+                lv->setKey(c.kt(b0), base(b0) + duckDb);
+                if (b1 < c.end()) lv->setKey(c.kt(b1), base(b1));
+                ++dips;
+            }
+        }
+    }
+    return dips;
+}
+
+bool isFillerWord(const QString &word)
+{
+    static const QSet<QString> fillers = {
+        "um", "umm", "ummm", "uh", "uhh", "uhm", "erm", "er", "err", "ah", "ahh", "hmm", "hm", "mm", "mmm", "mhm",
+        QString::fromUtf8("\xec\x9d\x8c"), QString::fromUtf8("\xec\x9c\xbc\xec\x9d\x8c"), QString::fromUtf8("\xec\x9d\x8c\xec\x9d\x8c"), // 음, 으음, 음음
+        QString::fromUtf8("\xec\x96\xb4"), QString::fromUtf8("\xec\x96\xb4\xec\x96\xb4"), QString::fromUtf8("\xed\x9d\xa0"), // 어, 어어, 흠
+        QString::fromUtf8("\xec\x97\x90")}; // 에
+    QString w;
+    for (QChar ch : word) if (ch.isLetter()) w += ch.toLower();
+    return !w.isEmpty() && fillers.contains(w);
+}
+
+QVector<FrameRange> fillerWordRanges(const Sequence &q, QStringList *found)
+{
+    QVector<FrameRange> out;
+    for (auto &cap : q.captions)
+        for (auto &w : cap.words) {
+            if (!isFillerWord(w.text) || w.end <= w.start) continue;
+            if (found) *found << w.text.trimmed();
+            if (!out.isEmpty() && w.start <= out.last().second + 1) out.last().second = qMax(out.last().second, w.end);
+            else out << qMakePair(w.start, w.end);
+        }
+    return out;
 }
 
 // Cross-correlates the loudness envelopes of two conformed files at 50 Hz.

@@ -1,0 +1,69 @@
+{
+    "classes": [
+        {
+            "className": "MixDevice",
+            "lineNumber": 19,
+            "object": true,
+            "qualifiedClassName": "MixDevice",
+            "superClasses": [
+                {
+                    "access": "public",
+                    "name": "QIODevice"
+                }
+            ]
+        },
+        {
+            "className": "PlaybackEngine",
+            "lineNumber": 35,
+            "object": true,
+            "qualifiedClassName": "PlaybackEngine",
+            "signals": [
+                {
+                    "access": "public",
+                    "arguments": [
+                        {
+                            "name": "img",
+                            "type": "QImage"
+                        },
+                        {
+                            "name": "f",
+                            "type": "Frame"
+                        }
+                    ],
+                    "index": 0,
+                    "lineNumber": 56,
+                    "name": "frameReady",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "arguments": [
+                        {
+                            "name": "f",
+                            "type": "Frame"
+                        }
+                    ],
+                    "index": 1,
+                    "lineNumber": 57,
+                    "name": "positionChanged",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "index": 2,
+                    "lineNumber": 58,
+                    "name": "stopped",
+                    "returnType": "void"
+                }
+            ],
+            "superClasses": [
+                {
+                    "access": "public",
+                    "name": "QObject"
+                }
+            ]
+        }
+    ],
+    "inputFile": "playback.h",
+    "outputRevision": 69
+}

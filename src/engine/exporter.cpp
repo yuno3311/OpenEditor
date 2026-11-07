@@ -1,5 +1,6 @@
 #include "exporter.h"
 #include "../core/mediacache.h"
+#include "audiodsp.h"
 #include "audiomix.h"
 #include "analysis.h"
 #include "compositor.h"
@@ -11,6 +12,7 @@
 #include <QPainter>
 #include <QProcess>
 #include <QTemporaryDir>
+#include <cmath>
 
 // A hardware encoder is listed only if it really initialises on this machine.
 static bool encoderWorks(const char *name)
@@ -43,6 +45,38 @@ const QVector<ExportFormat> &exportFormats()
 }
 
 Exporter::Exporter(const ProjectState &s, int id, const ExportSettings &c, QObject *p) : QThread(p), st(s), seqId(id), cfg(c) {}
+
+// Measures the rendered mix and scales it to the target. The gain stops short of pushing samples
+// past -1 dBFS, so a very dynamic mix may land a little under the target rather than clip.
+bool Exporter::normalizeLoudness(const QString &path)
+{
+    emit progress(.05, tr("Measuring loudness..."));
+    QFile f(path);
+    if (!f.open(QIODevice::ReadWrite)) return false;
+    Dsp::LoudnessMeter meter;
+    float peak = 0;
+    for (QByteArray chunk = f.read(1 << 20); !chunk.isEmpty(); chunk = f.read(1 << 20)) {
+        auto *s = reinterpret_cast<const float *>(chunk.constData());
+        const qint64 n = chunk.size() / 8;
+        meter.add(s, n);
+        for (qint64 i = 0; i < n * 2; ++i) peak = qMax(peak, std::fabs(s[i]));
+    }
+    measuredLufs = meter.integrated();
+    if (measuredLufs <= -90 || peak <= 0) return true;
+    appliedGainDb = qMin(cfg.loudnessLufs - measuredLufs, 20 * std::log10(.891 / peak));
+    const float g = float(std::pow(10.0, appliedGainDb / 20));
+    f.seek(0);
+    for (qint64 pos = 0;; pos += 1 << 20) {
+        f.seek(pos);
+        QByteArray chunk = f.read(1 << 20);
+        if (chunk.isEmpty()) break;
+        auto *s = reinterpret_cast<float *>(chunk.data());
+        for (qint64 i = 0; i < chunk.size() / 4; ++i) s[i] *= g;
+        f.seek(pos);
+        if (f.write(chunk) != chunk.size()) return false;
+    }
+    return true;
+}
 
 void Exporter::run()
 {
@@ -77,6 +111,8 @@ void Exporter::run()
             f.write(reinterpret_cast<const char *>(buf.constData()), n * 8);
             if (((p - a) / blk) % 256 == 0) emit progress(0.05 * double(p - a) / (b - a), tr("Rendering audio..."));
         }
+        f.close();
+        if (cfg.loudnessLufs < 0 && !stop && !normalizeLoudness(wav)) { emit failed("Cannot read the temporary audio."); return; }
     }
     if (stop) { emit failed(tr("Export cancelled.")); return; }
 

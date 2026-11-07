@@ -16,6 +16,7 @@ struct ExportSettings {
     bool video = true, audio = true;
     Frame first = 0, last = -1;
     bool sidecarSrt = false;
+    double loudnessLufs = 0;       // below zero: normalise the mix to this integrated loudness
 };
 
 struct ExportFormat {
@@ -31,6 +32,7 @@ class Exporter : public QThread {
 public:
     Exporter(const ProjectState &st, int seqId, const ExportSettings &s, QObject *p = nullptr);
     void cancel() { stop = true; }
+    double measuredLufs = -99, appliedGainDb = 0; // set when a loudness target was given
 signals:
     void progress(double fraction, const QString &status);
     void finishedOk(const QString &path);
@@ -38,6 +40,7 @@ signals:
 protected:
     void run() override;
 private:
+    bool normalizeLoudness(const QString &f32Path);
     ProjectState st;
     int seqId;
     ExportSettings cfg;

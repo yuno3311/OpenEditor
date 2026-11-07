@@ -118,6 +118,22 @@ static QVector<EffectDef> build()
     // --- Keying
     add("chromakey", "Chroma Key", "Keying", {col("key", "Key Color", 0x00C800), num("tol", "Tolerance", 40, 0, 100), num("soft", "Softness", 15, 0, 100),
         num("spill", "Spill Suppression", 60, 0, 100), num("choke", "Choke", 0, -100, 100)});
+    add("colorkey", "Color Key", "Keying", {col("key", "Key Color", 0x0000FF), num("tol", "Color Tolerance", 30, 0, 100), num("feather", "Edge Feather", 10, 0, 100)});
+    // --- New in 2.0
+    add("stabilize", "Warp Stabilizer", "Distort", {num("smooth", "Smoothness", 50, 0, 100, 1, "%"), tog("autoscale", "Auto-scale", true),
+        lim(pct("extra", "Additional Scale", 100, 100, 150), 100, 300)});
+    add("leavecolor", "Leave Color", "Color Correction", {col("color", "Color To Leave", 0xD03030), num("tol", "Tolerance", 25, 0, 100), num("soft", "Edge Softness", 10, 0, 100),
+        pct("amount", "Amount to Decolor", 100)});
+    add("findedges", "Find Edges", "Stylize", {tog("invert", "Invert", true), pct("blend", "Blend With Original", 0)});
+    add("emboss", "Emboss", "Stylize", {ang("dir", "Direction", 45), num("relief", "Relief", 3, 0, 20, .1), pct("blend", "Blend With Original", 0)});
+    add("twirl", "Twirl", "Distort", {ang("angle", "Angle", 90), num("radius", "Twirl Radius", 40, 1, 100, 1, "%")});
+    add("spherize", "Spherize", "Distort", {num("amount", "Amount", 50, -100, 100), num("radius", "Radius", 50, 1, 100, 1, "%")});
+    add("replicate", "Replicate", "Stylize", {lim(num("count", "Count", 2, 2, 16), 2, 16)});
+    add("linearwipe", "Linear Wipe", "Transition", {pct("done", "Transition Completion", 0), ang("angle", "Wipe Angle", 90), num("feather", "Feather", 0, 0, 500)});
+    add("ramp", "Gradient Ramp", "Generate", {col("start", "Start Color", 0x000000), col("end", "End Color", 0xFFFFFF), cho("shape", "Ramp Shape", 0, {"Linear", "Radial"}),
+        ang("angle", "Angle", 180), pct("blend", "Blend With Original", 0)});
+    add("strobe", "Strobe Light", "Stylize", {col("color", "Strobe Color", 0xFFFFFF), pct("blend", "Blend With Original", 0),
+        num("period", "Strobe Period", .5, .05, 5, .01, " s"), num("dur", "Strobe Duration", .1, .01, 5, .01, " s")});
     add("lumakey", "Luma Key", "Keying", {num("thresh", "Threshold", 20, 0, 100), num("cutoff", "Softness", 10, 0, 100), tog("invert", "Invert", false)});
     // --- Audio
     add("a_gain", "Amplify", "Amplitude and Compression", {db("gain", "Gain", 0, -60, 30)}, true);
@@ -131,6 +147,16 @@ static QVector<EffectDef> build()
         db("high", "High Shelf", 0, -18, 18), num("highF", "High Freq", 6000, 1500, 16000, 1, " Hz")}, true);
     add("a_delay", "Delay", "Delay and Echo", {num("time", "Delay Time", 300, 1, 2000, 1, " ms"), pct("fb", "Feedback", 30), pct("mix", "Mix", 30)}, true);
     add("a_reverb", "Studio Reverb", "Reverb", {pct("size", "Room Size", 50), pct("damp", "Damping", 50), pct("mix", "Wet", 25)}, true);
+    add("a_enhance", "Enhance Speech", "Essential Sound", {pct("amount", "Amount", 70), tog("level", "Level Loudness", true)}, true);
+    add("a_denoise", "DeNoise", "Noise Reduction/Restoration", {num("reduce", "Reduction", 18, 0, 40, .1, " dB"), num("sens", "Sensitivity", 2, 1, 4, .1)}, true);
+    add("a_deess", "DeEsser", "Noise Reduction/Restoration", {db("thresh", "Threshold", -30, -60, 0), num("freq", "Frequency", 6000, 3000, 12000, 10, " Hz"),
+        db("cut", "Maximum Reduction", 12, 0, 30)}, true);
+    add("a_dehum", "DeHum", "Noise Reduction/Restoration", {cho("freq", "Frequency", 1, {"50 Hz", "60 Hz"}), lim(num("harm", "Harmonics", 4, 1, 8), 1, 8),
+        num("q", "Notch Width (Q)", 30, 5, 100)}, true);
+    add("a_gate", "Noise Gate", "Amplitude and Compression", {db("thresh", "Threshold", -45, -80, 0), num("attack", "Attack", 2, .1, 50, .1, " ms"),
+        num("hold", "Hold", 50, 0, 500, 1, " ms"), num("release", "Release", 150, 5, 2000, 1, " ms"), db("range", "Range", -60, -96, 0)}, true);
+    add("a_chorus", "Chorus/Flanger", "Modulation", {cho("mode", "Mode", 0, {"Chorus", "Flanger"}), num("rate", "Rate", 1.2, .05, 10, .01, " Hz"),
+        pct("depth", "Depth", 50), pct("mix", "Mix", 50), pct("fb", "Feedback", 30)}, true);
     add("a_invert", "Invert Polarity", "Special", {}, true);
     add("a_swap", "Swap Channels", "Special", {}, true);
     add("a_mono", "Fill Stereo From Left", "Special", {}, true);

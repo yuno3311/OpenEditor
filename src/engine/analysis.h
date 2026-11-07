@@ -3,6 +3,7 @@
 #pragma once
 #include "../core/model.h"
 #include <QObject>
+#include <QSet>
 #include <QStringList>
 #include <QThread>
 #include <atomic>
@@ -13,6 +14,12 @@ namespace Analysis {
 QVector<FrameRange> findSilence(const ProjectState &st, int seqId, double thresholdDb, double minSeconds, double padSeconds = .1);
 QVector<double> detectScenes(const QString &path, double threshold = .35); // cut times in seconds
 double measureRmsDb(const ProjectState &st, int seqId);
+double measureLufs(const ProjectState &st, int seqId); // EBU R128 integrated loudness of the mix, -99 if silent
+// Auto Ducking: where the tracks not being ducked carry sound, then volume dips on the ducked tracks.
+QVector<FrameRange> dialogueRegions(const ProjectState &st, int seqId, const QSet<int> &duckTrackIds, double thresholdDb = -40);
+int applyDucking(Sequence &q, const QSet<int> &duckTrackIds, QVector<FrameRange> regions, double duckDb, Frame fade);
+bool isFillerWord(const QString &word);
+QVector<FrameRange> fillerWordRanges(const Sequence &q, QStringList *found = nullptr);
 double syncOffsetSeconds(const QString &reference, const QString &other, double maxSeconds = 60);
 QVector<Caption> parseSubtitles(const QString &text, double fps);          // SRT and WebVTT
 QString writeSrt(const QVector<Caption> &caps, double fps);

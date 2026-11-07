@@ -1,0 +1,61 @@
+{
+    "classes": [
+        {
+            "className": "Project",
+            "lineNumber": 9,
+            "object": true,
+            "qualifiedClassName": "Project",
+            "signals": [
+                {
+                    "access": "public",
+                    "index": 0,
+                    "lineNumber": 44,
+                    "name": "changed",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "arguments": [
+                        {
+                            "name": "f",
+                            "type": "Frame"
+                        }
+                    ],
+                    "index": 1,
+                    "lineNumber": 45,
+                    "name": "playheadChanged",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "index": 2,
+                    "lineNumber": 46,
+                    "name": "selectionChanged",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "index": 3,
+                    "lineNumber": 47,
+                    "name": "activeSeqChanged",
+                    "returnType": "void"
+                },
+                {
+                    "access": "public",
+                    "index": 4,
+                    "lineNumber": 48,
+                    "name": "dirtyChanged",
+                    "returnType": "void"
+                }
+            ],
+            "superClasses": [
+                {
+                    "access": "public",
+                    "name": "QObject"
+                }
+            ]
+        }
+    ],
+    "inputFile": "project.h",
+    "outputRevision": 69
+}

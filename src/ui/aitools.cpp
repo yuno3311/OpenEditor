@@ -1,16 +1,20 @@
 #include "aitools.h"
 #include "../core/effectdefs.h"
+#include "../core/fonts.h"
+#include "../core/textpresets.h"
 #include "../core/mediacache.h"
 #include "../core/ops.h"
 #include "../core/project.h"
 #include "../engine/analysis.h"
 #include "../engine/compositor.h"
 #include "../engine/exporter.h"
+#include "../engine/stabilize.h"
 #include <QBuffer>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QFontDatabase>
 #include <QJsonDocument>
 #include <QThread>
 #include <QtConcurrent>
@@ -364,10 +368,13 @@ void AiTools::build()
             return textResult("Added.");
         });
     add("add_title", "Add a text title clip on the first free video track.",
-        {P("text", "string", "Title text", true), P("frame", "integer", "Start frame, default the playhead"), P("duration_frames", "integer", "Length, default 150"), P("size", "number", "Font size in pixels, default 96"), P("y", "number", "Vertical centre in pixels, default frame centre")},
+        {P("text", "string", "Title text", true), P("frame", "integer", "Start frame, default the playhead"), P("duration_frames", "integer", "Length, default 150"), P("size", "number", "Font size in pixels, default 96"), P("y", "number", "Vertical centre in pixels, default frame centre"),
+         P("style", "object", "Optional text style; see set_text_style for the keys"), P("preset", "string", "Optional style preset name from list_text_presets")},
         [](const QJsonObject &a) {
             Sequence &q0 = seq();
             Frame at = a.contains("frame") ? Frame(a["frame"].toDouble()) : q0.playhead, dur = a["duration_frames"].toInt(150);
+            QJsonObject presetStyle;
+            if (a.contains("preset") && !TextPresets::find(a["preset"].toString(), &presetStyle)) fail("No such preset. Use list_text_presets.");
             int id = 0;
             editActive("New Title", [&](ProjectState &st, Sequence &q) {
                 Track *dest = nullptr;
@@ -380,6 +387,8 @@ void AiTools::build()
                 Clip c;
                 c.id = id = st.newId(); c.kind = MediaKind::Text; c.name = "Title"; c.start = at; c.dur = dur; c.label = defaultLabel(MediaKind::Text);
                 c.text.text = a["text"].toString(); c.text.size = a["size"].toDouble(96);
+                if (!presetStyle.isEmpty()) c.text = TextPresets::apply(c.text, presetStyle);
+                if (a["style"].isObject()) c.text = TextPresets::apply(c.text, a["style"].toObject());
                 EffectRegistry::defaultsFor(c);
                 c.fx[0].find("posX")->value = q.w / 2.0; c.fx[0].find("posY")->value = a["y"].toDouble(q.h / 2.0);
                 c.fx[0].find("ancX")->value = q.w / 2.0; c.fx[0].find("ancY")->value = q.h / 2.0;
@@ -387,6 +396,55 @@ void AiTools::build()
             });
             return jsonResult(QJsonObject{{"clip_id", id}});
         });
+    add("set_text_style", QString("Change a title clip's text and look. ") + "Style keys (any subset): text, font, size, weight (100-900), i (italic), u (underline), strike, caps (0 as typed, 1 ALL CAPS, 2 small caps, 3 lowercase, 4 Title Case), kern, track (tracking px), lead (leading px), skew (degrees), align (0 left, 1 center, 2 right, 3 justify), valign (0 top, 1 middle, 2 bottom), box (wrap width px, 0 none), fill and fill2 (#AARRGGBB), fillType (0 solid, 1 linear, 2 radial), gradA (degrees), stroke, strokeC, strokeW, strokePos (0 outside, 1 center, 2 inside), shadow, shadowC, shadowD, shadowA (degrees), shadowB, glow, glowC, glowS, glowK (0-3), bg, bgC, bgPad (-1 auto), bgR (corner radius), bgLine (box per line), animIn and animOut (0 none, 1 fade, 2 typewriter, 3 slide up, 4 slide down, 5 pop, 6 wipe), animInS, animOutS (seconds).",
+        {P("clip_id", "integer", "Title clip id", true), P("style", "object", "Style keys to change", true)}, [](const QJsonObject &a) {
+            const Clip *c = seq().clip(reqInt(a, "clip_id"));
+            if (!c || c->kind != MediaKind::Text) fail("That clip is not a title.");
+            const QJsonObject style = a["style"].toObject();
+            if (style.isEmpty()) fail("Give at least one style key.");
+            QStringList unknown;
+            const QJsonObject known = textStyleToJson(TextStyle());
+            for (auto it = style.begin(); it != style.end(); ++it) if (!known.contains(it.key())) unknown << it.key();
+            if (!unknown.isEmpty()) fail("Unknown style keys: " + unknown.join(", "));
+            const int id = c->id;
+            editActive("Edit Title", [&](ProjectState &, Sequence &q) { if (Clip *k = q.clip(id)) k->text = TextPresets::apply(k->text, style); });
+            QString note;
+            if (style.contains("font") && !Fonts::available(style["font"].toString())) note = " That font is not installed, so a substitute shows; use import_font.";
+            return textResult("Updated." + note);
+        });
+    add("list_text_presets", "List title style presets: built-in looks and the user's saved ones.", {}, [](const QJsonObject &) {
+        QJsonArray out;
+        for (auto &p : TextPresets::all()) out.append(QJsonObject{{"name", p.first}, {"built_in", TextPresets::isBuiltIn(p.first)}, {"style", p.second}});
+        return jsonResult(out);
+    });
+    add("apply_text_preset", "Apply a style preset to a title, keeping its words.", {P("clip_id", "integer", "Title clip id", true), P("name", "string", "Preset name", true)}, [](const QJsonObject &a) {
+        const Clip *c = seq().clip(reqInt(a, "clip_id"));
+        if (!c || c->kind != MediaKind::Text) fail("That clip is not a title.");
+        QJsonObject j;
+        if (!TextPresets::find(a["name"].toString(), &j)) fail("No such preset. Use list_text_presets.");
+        const int id = c->id;
+        editActive("Apply Style", [&](ProjectState &, Sequence &q) { if (Clip *k = q.clip(id)) k->text = TextPresets::apply(k->text, j); });
+        return textResult("Applied " + a["name"].toString() + ".");
+    });
+    add("import_font", "Import a font file (.ttf, .otf, .ttc, .otc, .woff, .woff2) so titles can use it. Returns its family names.",
+        {P("path", "string", "Absolute path to the font file", true)}, [](const QJsonObject &a) {
+            const QString path = a["path"].toString();
+            if (!QFileInfo(path).isAbsolute()) fail("path must be absolute.");
+            QString err;
+            const QStringList fams = Fonts::import(path, &err);
+            if (fams.isEmpty()) fail(err);
+            emit PRJ->changed();
+            return jsonResult(QJsonArray::fromStringList(fams));
+        });
+    add("list_fonts", "List font families titles can use: installed and imported.", {P("contains", "string", "Only families containing this text")}, [](const QJsonObject &a) {
+        const QString f = a["contains"].toString();
+        const QStringList imported = Fonts::importedFamilies();
+        QJsonArray out;
+        for (auto &fam : QFontDatabase::families())
+            if (f.isEmpty() || fam.contains(f, Qt::CaseInsensitive)) out.append(QJsonObject{{"family", fam}, {"imported", imported.contains(fam)}});
+        if (out.size() > 400) fail(QString("%1 fonts match. Narrow it with contains.").arg(out.size()));
+        return jsonResult(out);
+    });
     add("add_marker", "Add a sequence marker.", {P("frame", "integer", "Frame", true), P("name", "string", "Marker name"), P("comment", "string", "Comment")}, [](const QJsonObject &a) {
         editActive("Add Marker", [&](ProjectState &, Sequence &q) {
             Marker m; m.t = Frame(a["frame"].toDouble()); m.name = a["name"].toString(); m.comment = a["comment"].toString(); m.color = 13;
@@ -515,6 +573,114 @@ void AiTools::build()
         editActive("Scene Edit Detection", [&](ProjectState &st, Sequence &q) { for (Frame f : cuts) Ops::razor(st, q, f, {}); });
         return textResult(QString("Added %1 cut(s).").arg(cuts.size()));
     });
+    add("measure_loudness", "Measure the integrated loudness (EBU R128 / ITU BS.1770) of the active sequence's mix, in LUFS.", {}, [](const QJsonObject &) {
+        double l = Analysis::measureLufs(PRJ->s, seq().id);
+        if (l <= -90) fail("The sequence has no audio.");
+        return textResult(QString("%1 LUFS integrated.").arg(l, 0, 'f', 1));
+    });
+    add("match_loudness", "Set the sequence master so the mix reaches a target integrated loudness, like Premiere's Loudness Normalization.",
+        {P("target_lufs", "number", "Target in LUFS, default -14 (online). Broadcast is -23 or -24")}, [](const QJsonObject &a) {
+            const double target = a["target_lufs"].toDouble(-14);
+            if (target >= 0 || target < -40) fail("target_lufs must be between -40 and 0.");
+            double now = Analysis::measureLufs(PRJ->s, seq().id);
+            if (now <= -90) fail("The sequence has no audio.");
+            const double delta = target - now;
+            editActive("Match Loudness", [&](ProjectState &, Sequence &q) { q.masterDb += delta; });
+            return textResult(QString("Measured %1 LUFS, master changed by %2 dB.").arg(now, 0, 'f', 1).arg(delta, 0, 'f', 1));
+        });
+    add("enhance_speech", "Enhance Speech: add the dialogue clean-up effect (noise reduction, EQ, de-essing, compression, levelling) to audio clips. Video clips use their linked audio.",
+        {P("clip_ids", "array", "Clip ids", true, "integer"), P("amount", "number", "0 to 100, default 70")}, [](const QJsonObject &a) {
+            QSet<int> ids, links;
+            for (auto v : a["clip_ids"].toArray()) ids << v.toInt();
+            Sequence &q0 = seq();
+            for (auto *t : q0.allTracks()) for (auto &c : t->clips) if (ids.contains(c.id) && c.link) links << c.link;
+            const double amount = qBound(0.0, a["amount"].toDouble(70), 100.0);
+            int n = 0;
+            editActive("Enhance Speech", [&](ProjectState &, Sequence &q) {
+                for (auto &t : q.audio)
+                    for (auto &c : t.clips) {
+                        if (!ids.contains(c.id) && !(c.link && links.contains(c.link))) continue;
+                        Effect *e = c.effect("a_enhance");
+                        if (!e) { c.fx << EffectRegistry::make("a_enhance"); e = &c.fx.last(); }
+                        e->find("amount")->value = amount;
+                        ++n;
+                    }
+            });
+            if (!n) fail("None of those clips has audio.");
+            return textResult(QString("Enhance Speech is on %1 audio clip(s).").arg(n));
+        });
+    add("auto_duck", "Auto Ducking: lower the given (music) tracks with volume keyframes wherever the other audio tracks carry dialogue.",
+        {P("track_ids", "array", "Audio track ids to duck", true, "integer"), P("duck_db", "number", "How far to duck, default -15"),
+         P("threshold_db", "number", "Dialogue louder than this counts, default -40"), P("fade_seconds", "number", "Fade length, default 0.5")},
+        [](const QJsonObject &a) {
+            Sequence &q0 = seq();
+            QSet<int> duck;
+            for (auto v : a["track_ids"].toArray()) duck << v.toInt();
+            int others = 0; // un-ducked tracks that actually hold clips
+            for (auto &t : q0.audio) if (!duck.contains(t.id) && !t.clips.isEmpty()) ++others;
+            QSet<int> known;
+            for (auto &t : q0.audio) known << t.id;
+            for (int id : duck) if (!known.contains(id)) fail(QString("Track %1 is not an audio track in this sequence.").arg(id));
+            if (duck.isEmpty()) fail("Give the tracks to duck.");
+            if (!others) fail("Leave at least one dialogue track un-ducked.");
+            const double duckDb = qBound(-60.0, a["duck_db"].toDouble(-15), 0.0);
+            const auto regions = Analysis::dialogueRegions(PRJ->s, q0.id, duck, a["threshold_db"].toDouble(-40));
+            if (regions.isEmpty()) return textResult("No dialogue was found above the threshold, so nothing was ducked.");
+            const Frame fade = qMax<Frame>(1, Frame(a["fade_seconds"].toDouble(.5) * q0.fps()));
+            int dips = 0;
+            editActive("Auto Ducking", [&](ProjectState &, Sequence &q) { dips = Analysis::applyDucking(q, duck, regions, duckDb, fade); });
+            return textResult(QString("Found %1 dialogue passage(s); added %2 volume dip(s).").arg(regions.size()).arg(dips));
+        });
+    add("remove_filler_words", "Delete filler words (um, uh, hmm, and Korean 음/어) from the transcript and the footage under them, closing the gaps.", {}, [](const QJsonObject &) {
+        QStringList found;
+        const auto ranges = Analysis::fillerWordRanges(seq(), &found);
+        if (ranges.isEmpty()) return textResult("No filler words found. Transcribe the sequence first if it has no transcript.");
+        editActive("Remove Filler Words", [&](ProjectState &st, Sequence &q) { Ops::rippleRemoveRanges(st, q, ranges); });
+        return textResult(QString("Removed %1 filler word(s): %2").arg(found.size()).arg(found.join(", ")));
+    });
+    add("stabilize_clip", "Warp Stabilizer: analyse a video clip's camera shake and smooth it (position only). Runs in the background; poll job_status.",
+        {P("clip_id", "integer", "Video clip id", true), P("smoothness", "number", "0 to 100, default 50")}, [this](const QJsonObject &a) {
+            Sequence &q = seq();
+            const Clip *c = q.clip(reqInt(a, "clip_id"));
+            if (!c) fail("No such clip.");
+            const MediaItem *m = PRJ->s.mediaById(c->mediaId);
+            if (!m || m->kind != MediaKind::Video || m->path.isEmpty()) fail("Choose a clip from a video file.");
+            const QString path = m->path, ffmpeg = CACHE->ffmpeg();
+            const double t0 = c->srcIn, dur = qMax(0.0, c->srcOut(q.fps()) - c->srcIn), fps = m->fps, smooth = qBound(0.0, a["smoothness"].toDouble(50), 100.0);
+            const int w = m->w, h = m->h, cid = c->id, sid = q.id;
+            const int job = startJob("stabilize");
+            auto *th = QThread::create([=, this] {
+                auto r = Stabilize::analyze(ffmpeg, path, t0, dur, w, h, fps, [=, this](double f) {
+                    QMetaObject::invokeMethod(this, [=, this] { updateJob(job, "running", f, "Analysing camera motion"); });
+                    return true;
+                });
+                QMetaObject::invokeMethod(this, [=, this] {
+                    if (!r.error.isEmpty()) { updateJob(job, "failed", 0, r.error); return; }
+                    bool found = false;
+                    PRJ->edit("Warp Stabilizer", [&](ProjectState &st) {
+                        Sequence *sq = st.seqById(sid);
+                        Clip *cl = sq ? sq->clip(cid) : nullptr;
+                        if (!cl) return;
+                        found = true;
+                        Effect *e = cl->effect("stabilize");
+                        if (!e) {
+                            // First after the built-in effects, so later effects see the steadied picture.
+                            int at = 0;
+                            while (at < cl->fx.size() && (cl->fx[at].type == "motion" || cl->fx[at].type == "opacity")) ++at;
+                            cl->fx.insert(at, EffectRegistry::make("stabilize"));
+                            e = &cl->fx[at];
+                        }
+                        e->extra = r.extra;
+                        e->find("smooth")->value = smooth;
+                    });
+                    if (found) updateJob(job, "done", 1, "Stabilized.");
+                    else updateJob(job, "failed", 0, "The clip was deleted while it was being analysed.");
+                });
+            });
+            connect(th, &QThread::finished, th, &QObject::deleteLater);
+            th->start();
+            return jsonResult(QJsonObject{{"job_id", job}});
+        });
     add("normalize_audio", "Raise or lower the sequence master so program level reaches a target RMS.",
         {P("target_db", "number", "Target RMS in dB, default -18")}, [](const QJsonObject &a) {
             double now = Analysis::measureRmsDb(PRJ->s, seq().id);
@@ -588,7 +754,8 @@ void AiTools::build()
         });
     add("export_sequence", "Export the active sequence to a file. Runs in the background and returns a job id. Refuses to replace an existing file unless overwrite is true.",
         {P("path", "string", "Absolute output path", true), P("format", "string", "Format name such as H.264, default H.264"), P("width", "integer", "Default sequence width"), P("height", "integer", "Default sequence height"),
-         P("crf", "integer", "Quality, default 20"), P("first_frame", "integer", "Range start"), P("last_frame", "integer", "Range end, exclusive"), P("overwrite", "boolean", "Replace an existing file")},
+         P("crf", "integer", "Quality, default 20"), P("first_frame", "integer", "Range start"), P("last_frame", "integer", "Range end, exclusive"), P("overwrite", "boolean", "Replace an existing file"),
+         P("loudness_lufs", "number", "Normalise the mix to this integrated loudness, for example -14. Omit to leave it")},
         [this](const QJsonObject &a) {
             Sequence &q = seq();
             QString path = a["path"].toString();
@@ -597,6 +764,10 @@ void AiTools::build()
             ExportSettings c;
             c.path = path; c.format = a["format"].toString("H.264"); c.width = a["width"].toInt(q.w); c.height = a["height"].toInt(q.h); c.crf = a["crf"].toInt(20);
             c.first = Frame(a["first_frame"].toDouble(0)); c.last = Frame(a["last_frame"].toDouble(-1));
+            if (a.contains("loudness_lufs")) {
+                c.loudnessLufs = a["loudness_lufs"].toDouble();
+                if (c.loudnessLufs >= 0 || c.loudnessLufs < -40) fail("loudness_lufs must be between -40 and 0, for example -14.");
+            }
             bool known = false;
             for (auto &f : exportFormats()) known |= f.name == c.format;
             if (!known) fail("Unknown format: " + c.format);

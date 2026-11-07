@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/qt/qml/Open_Editor/">
+    <file alias="Main.qml">C:/QT Proj/Open_Editor/Main.qml</file>
+  </qresource>
+</RCC>
+

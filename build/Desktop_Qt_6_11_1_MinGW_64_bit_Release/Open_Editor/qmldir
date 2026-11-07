@@ -1,0 +1,6 @@
+module Open_Editor
+typeinfo appOpen_Editor.qmltypes
+prefer :/qt/qml/Open_Editor/
+Main 254.0 Main.qml
+depends QtQuick
+

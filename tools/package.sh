@@ -2,7 +2,7 @@
 # Refresh the release folder and build the Inno Setup installer.
 # Usage: tools/package.sh [release folder] [path to .iss]
 set -e
-STAGE="${1:-/c/Users/foryu/Downloads/v1.0.0}"
+STAGE="${1:-/c/Users/foryu/Downloads/v2.0.0}"
 ISS="${2:-/c/Users/foryu/Downloads/OpenEditor.iss}"
 ISCC="/c/Program Files/Inno Setup 7/ISCC.exe"
 BUILD=build/ninja-release

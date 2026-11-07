@@ -9,11 +9,12 @@ class QNetworkReply;
 namespace Setup {
 struct Status {
     QString ffmpeg, ffprobe, ffmpegNote;
-    bool ffmpegOk = false, ffprobeOk = false, whisper = false, model = false, bridge = false;
+    bool ffmpegOk = false, ffprobeOk = false, whisper = false, model = false, bridge = false, encoders = false;
     bool requiredOk() const { return ffmpegOk && ffprobeOk; }
 };
 Status check();
-bool needed();
+bool needed();   // first run, after an upgrade, or when FFmpeg has gone missing
+void markDone(); // records that setup finished for this version
 bool useFfmpegDir(const QString &dir);
 // False means the app cannot run: only possible at startup, when the user left FFmpeg missing.
 bool run(bool atStartup);

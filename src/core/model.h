@@ -58,7 +58,30 @@ struct TextStyle {
     bool background = false;
     QColor bgColor = QColor(0, 0, 0, 160);
     double tracking = 0, leading = 0;
+
+    // Added in 2.1. The defaults draw exactly what earlier versions drew.
+    int weight = 0;               // 100 thin .. 900 black; 0 follows bold
+    bool strike = false, kerning = true;
+    int caps = 0;                 // 0 as typed, 1 ALL CAPS, 2 Small Caps, 3 lowercase, 4 Title Case
+    double skew = 0;              // faux italic, degrees
+    int valign = 1;               // 0 top, 1 middle, 2 bottom of the title-safe area
+    double boxWidth = 0;          // paragraph text: wrap at this width in pixels; 0 = point text
+    int fillType = 0;             // 0 solid, 1 linear gradient, 2 radial gradient
+    QColor fill2 = QColor(255, 170, 0);
+    double gradAngle = 180;       // 180 runs top to bottom, 90 left to right
+    int strokePos = 0;            // 0 outside, 1 centre, 2 inside
+    double shadowAngle = 135;     // 135 is down and to the right
+    bool glow = false;
+    QColor glowColor = QColor(255, 255, 255, 200);
+    double glowSize = 14, glowStrength = 1;
+    double bgPad = -1, bgRadius = 0; // bgPad < 0: automatic padding
+    bool bgPerLine = false;
+    int animIn = 0, animOut = 0;  // TextAnimation
+    double animInSec = .6, animOutSec = .6;
+
+    int effectiveWeight() const { return weight > 0 ? weight : (bold ? 700 : 400); }
 };
+enum TextAnimation { TextAnimNone, TextAnimFade, TextAnimTypewriter, TextAnimSlideUp, TextAnimSlideDown, TextAnimPop, TextAnimWipe, TextAnimCount };
 
 struct Clip {
     int id = 0;
@@ -205,4 +228,6 @@ constexpr int kLabelCount = 16;
 QJsonObject stateToJson(const ProjectState &s);
 ProjectState stateFromJson(const QJsonObject &o);
 QJsonObject clipToJson(const Clip &c);
+QJsonObject textStyleToJson(const TextStyle &t);
+TextStyle textStyleFromJson(const QJsonObject &o); // missing keys keep their defaults
 Clip clipFromJson(const QJsonObject &o);

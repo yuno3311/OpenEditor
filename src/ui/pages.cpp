@@ -264,6 +264,14 @@ ExportPage::ExportPage(QWidget *p) : QWidget(p)
     aKbps = new QSpinBox(aBox); aKbps->setRange(64, 512); aKbps->setValue(320); aKbps->setSuffix(" kbps");
     af->addRow(withA);
     af->addRow(tr("Bitrate"), aKbps);
+    loud = new QComboBox(aBox);
+    loud->addItem(tr("Off"), 0.0);
+    loud->addItem(tr("-14 LUFS (YouTube, Spotify)"), -14.0);
+    loud->addItem(tr("-16 LUFS (Apple, podcasts)"), -16.0);
+    loud->addItem(tr("-23 LUFS (EBU R128 broadcast)"), -23.0);
+    loud->addItem(tr("-24 LUFS (ATSC A/85 broadcast)"), -24.0);
+    loud->setToolTip(tr("Measures the finished mix and sets its integrated loudness. Peaks stay under -1 dBFS."));
+    af->addRow(tr("Loudness"), loud);
     sidecar = new QCheckBox(tr("Write Captions Beside the File (.srt)"), aBox);
     af->addRow(sidecar);
     left->addWidget(aBox);
@@ -376,6 +384,7 @@ void ExportPage::start()
     if (QFileInfo::exists(c.path) && QMessageBox::question(this, tr("Export"), tr("%1 already exists. Replace it?").arg(QFileInfo(c.path).fileName())) != QMessageBox::Yes) return;
     c.width = wEd->value(); c.height = hEd->value(); c.crf = crf->value(); c.kbps = kbps->value();
     c.sidecarSrt = sidecar->isChecked();
+    c.loudnessLufs = loud->currentData().toDouble();
     c.preset = speed->currentText(); c.audioKbps = aKbps->value(); c.video = withV->isChecked(); c.audio = withA->isChecked();
     if (range->currentIndex() == 1) { c.first = qMax<Frame>(0, q->inPt); c.last = q->outPt; }
     job = new Exporter(PRJ->s, q->id, c, this);
@@ -383,8 +392,9 @@ void ExportPage::start()
     connect(job, &Exporter::progress, this, [this](double fr, const QString &st) { bar->setValue(int(fr * 1000)); status->setText(st); });
     auto done = [this] { bar->hide(); cancelBtn->hide(); job->deleteLater(); job = nullptr; updateSummary(); };
     connect(job, &Exporter::finishedOk, this, [this, done](const QString &path) {
+        QString lufs = job->measuredLufs > -90 ? tr(" (loudness %1 LUFS, %2 dB applied)").arg(job->measuredLufs + job->appliedGainDb, 0, 'f', 1).arg(job->appliedGainDb, 0, 'f', 1) : QString();
         done();
-        status->setText(tr("Export complete: %1").arg(QDir::toNativeSeparators(path)));
+        status->setText(tr("Export complete: %1").arg(QDir::toNativeSeparators(path)) + lufs);
     });
     connect(job, &Exporter::failed, this, [this, done](const QString &w) { done(); status->setText(w); });
     job->start();

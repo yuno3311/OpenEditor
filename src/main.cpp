@@ -1,3 +1,4 @@
+#include "core/fonts.h"
 #include "core/mediacache.h"
 #include "core/ops.h"
 #include "core/project.h"
@@ -9,7 +10,11 @@
 #include "ui/mainwindow.h"
 #include "ui/setupwizard.h"
 #include "ui/theme.h"
+#include "ui/pages.h"
 #include <QApplication>
+#include <QBuffer>
+#include <QDataStream>
+#include <QIcon>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
@@ -32,6 +37,7 @@ static void pump(int ms)
 }
 int textSelfTest(MainWindow &w, const QStringList &args);
 int aiSelfTest(MainWindow &w, const QStringList &args);
+int v2SelfTest(MainWindow &w, const QStringList &args);
 
 static int failures = 0;
 static void expect(bool ok, const char *what)
@@ -243,7 +249,35 @@ static int uiSmoke(MainWindow &w, const QStringList &args)
     return failures ? 1 : 0;
 }
 
-static bool isTest(const QStringList &a) { return a.contains("--ui-smoke") || a.contains("--text-test") || a.contains("--ai-test") || a.contains("--setup-test"); }
+// Saves the app logo as a Windows .ico (PNG entries) for the executable and the installer.
+static bool writeIcon(const QString &path)
+{
+    const QIcon icon = appIcon();
+    QList<QByteArray> pngs;
+    const QList<int> sizes{16, 24, 32, 48, 64, 128, 256};
+    for (int s : sizes) {
+        QByteArray b;
+        QBuffer buf(&b);
+        buf.open(QIODevice::WriteOnly);
+        if (!icon.pixmap(s, s).toImage().scaled(s, s, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).save(&buf, "PNG")) return false;
+        pngs << b;
+    }
+    QByteArray out;
+    QDataStream ds(&out, QIODevice::WriteOnly);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds << quint16(0) << quint16(1) << quint16(sizes.size());
+    quint32 offset = 6 + 16 * sizes.size();
+    for (int i = 0; i < sizes.size(); ++i) {
+        const quint8 d = sizes[i] >= 256 ? 0 : quint8(sizes[i]);
+        ds << d << d << quint8(0) << quint8(0) << quint16(1) << quint16(32) << quint32(pngs[i].size()) << offset;
+        offset += pngs[i].size();
+    }
+    for (auto &p : pngs) out += p;
+    QFile f(path);
+    return f.open(QIODevice::WriteOnly) && f.write(out) == out.size();
+}
+
+static bool isTest(const QStringList &a) { return a.contains("--ui-smoke") || a.contains("--text-test") || a.contains("--ai-test") || a.contains("--setup-test") || a.contains("--v2-test"); }
 
 int main(int argc, char *argv[])
 {
@@ -251,16 +285,18 @@ int main(int argc, char *argv[])
     // The smoke test keeps its layouts and caches away from the user's own settings.
     QApplication::setApplicationName(isTest(QApplication::arguments()) ? "Open Editor Test" : "Open Editor");
     QApplication::setOrganizationName("Open Editor");
-    QApplication::setApplicationVersion("2.1");
+    QApplication::setApplicationVersion(OE_VERSION);
     Theme::apply(app);
     GpuFx::prepareOnMainThread();
     GpuFx::enabled = QSettings().value("gpu", true).toBool();
     VideoReader::hwDecode = QSettings().value("hwDecode", true).toBool();
+    Fonts::loadImported();
     PluginHost::loadFrom(QApplication::applicationDirPath() + "/oe-plugins");
     PluginHost::loadFrom(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/plugins");
     VideoReader::setCacheBudget(qint64(QSettings().value("cacheGB", 3).toInt()) << 30);
 
     auto args = QApplication::arguments();
+    if (int t = args.indexOf("--write-icon"); t >= 0 && t + 1 < args.size()) return writeIcon(args[t + 1]) ? 0 : 1;
     if (int t = args.indexOf("--setup-test"); t >= 0) return Setup::selfTest(args.mid(t + 1));
     if (!isTest(args) && Setup::needed() && !Setup::run(true)) return 1;
 
@@ -268,6 +304,7 @@ int main(int argc, char *argv[])
     w.show();
     if (int t = args.indexOf("--text-test"); t >= 0) { pump(300); return textSelfTest(w, args.mid(t + 1)); }
     if (int t = args.indexOf("--ai-test"); t >= 0) { pump(300); return aiSelfTest(w, args.mid(t + 1)); }
+    if (int t = args.indexOf("--v2-test"); t >= 0) { pump(300); return v2SelfTest(w, args.mid(t + 1)); }
     int smoke = args.indexOf("--ui-smoke");
     if (smoke >= 0 && args.size() > smoke + 2) {
         pump(300);

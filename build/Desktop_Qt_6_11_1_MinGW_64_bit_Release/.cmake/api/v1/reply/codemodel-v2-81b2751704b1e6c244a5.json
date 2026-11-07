@@ -1,0 +1,241 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Release-4c71a500493bb7e1b8e1.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19,
+						20
+					]
+				}
+			],
+			"name" : "Release",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "Open_Editor",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19,
+						20
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "appOpen_Editor::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appOpen_Editor-Release-f0d53cd4834986def71a.json",
+					"name" : "appOpen_Editor",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appOpen_Editor_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appOpen_Editor_autogen-Release-4203468ae5784e2e95b5.json",
+					"name" : "appOpen_Editor_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appOpen_Editor_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appOpen_Editor_autogen_timestamp_deps-Release-9807b24ec0d3a8192dad.json",
+					"name" : "appOpen_Editor_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe-mcp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe-mcp-Release-863c1100fd9e25f5e36b.json",
+					"name" : "oe-mcp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe-mcp_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe-mcp_autogen-Release-f7c86b26de6f278c4274.json",
+					"name" : "oe-mcp_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe-mcp_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe-mcp_autogen_timestamp_deps-Release-e97369d8adee52d56ff1.json",
+					"name" : "oe-mcp_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_align_eval::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_align_eval-Release-32feee384217929361b7.json",
+					"name" : "oe_align_eval",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_align_eval_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_align_eval_autogen-Release-11f29957fc95bc58c891.json",
+					"name" : "oe_align_eval_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_align_eval_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_align_eval_autogen_timestamp_deps-Release-fdf5db4be3d9ac42026c.json",
+					"name" : "oe_align_eval_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_core::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_core-Release-745da48172e134b4be10.json",
+					"name" : "oe_core",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_core_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_core_autogen-Release-8d26e15d4d7920dfef58.json",
+					"name" : "oe_core_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_core_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_core_autogen_timestamp_deps-Release-0f8f1b8118c50ca8020f.json",
+					"name" : "oe_core_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_engine_test::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_engine_test-Release-0294b9c8389d9148c2b1.json",
+					"name" : "oe_engine_test",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_engine_test_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_engine_test_autogen-Release-ea790c0ad5577be95c75.json",
+					"name" : "oe_engine_test_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_engine_test_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_engine_test_autogen_timestamp_deps-Release-8c83ed616ae2b01d07ab.json",
+					"name" : "oe_engine_test_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_features_test::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_features_test-Release-413c46722ed02b6f1b95.json",
+					"name" : "oe_features_test",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_features_test_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_features_test_autogen-Release-4901cf91733dfb328db6.json",
+					"name" : "oe_features_test_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_features_test_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_features_test_autogen_timestamp_deps-Release-acfcd849a4555786fd69.json",
+					"name" : "oe_features_test_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_plugin_duotone::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_plugin_duotone-Release-accac7819b9e7b8e904f.json",
+					"name" : "oe_plugin_duotone",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_plugin_duotone_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_plugin_duotone_autogen-Release-e71ad536871e3d16b46a.json",
+					"name" : "oe_plugin_duotone_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "oe_plugin_duotone_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-oe_plugin_duotone_autogen_timestamp_deps-Release-0f9a6cc17faa9994a76f.json",
+					"name" : "oe_plugin_duotone_autogen_timestamp_deps",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/QT Proj/Open_Editor/build/Desktop_Qt_6_11_1_MinGW_64_bit_Release",
+		"source" : "C:/QT Proj/Open_Editor"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}
