@@ -1,0 +1,80 @@
+# Build output
+build/
+build-*/
+cmake-build-*/
+out/
+Testing/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeLists.txt.user*
+CMakeUserPresets.json
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+install_manifest.txt
+
+# Qt generated files
+*_autogen/
+.qt/
+.rcc/
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qm
+*.moc
+*.qmlc
+*.jsc
+
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.so.*
+*.dylib
+*.a
+*.lib
+*.o
+*.obj
+*.pdb
+*.exp
+*.ilk
+*.manifest
+
+# IDEs and tooling
+.qtcreator/
+.qtc_clangd/
+.cache/
+.clangd/
+.vs/
+.vscode/
+.idea/
+*.user
+*.user.*
+*.autosave
+
+# Local secrets and MCP connection details
+.env
+.env.*
+mcp.json
+
+# Whisper models and test media
+ggml-*.bin
+*.mp4
+*.mov
+*.mxf
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.m4a
+
+# Operating system
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
+*.lnk
+~$*
