@@ -1,113 +1,265 @@
-# Open Editor
+<div align="center">
 
-A non-linear video editor written from scratch in C++ with Qt 6 Widgets.
+<img src="docs/banner.png" alt="Open Editor: a non-linear video editor where you cut footage by editing the words" width="100%">
 
-## Build and run
+<br>
 
-Open `CMakeLists.txt` in Qt Creator with the *Desktop Qt 6.11.1 MinGW 64-bit* kit and run
-`appOpen_Editor`, or from a POSIX shell run `./build.sh`.
+**A non-linear video editor written from scratch in C++ with Qt 6 Widgets.**<br>
+Timeline editing, color, audio and local speech-to-text, plus an MCP server that lets AI clients drive the editor.
 
-FFmpeg 8 or newer with the `whisper` filter must be available: `ffmpeg` and `ffprobe` on `PATH`, or
-`ffmpeg.exe` and `ffprobe.exe` beside `OpenEditor.exe`.
+<br>
 
-## Packaging
+[![License: MIT](https://img.shields.io/badge/license-MIT-2d8ceb?style=flat-square)](LICENSE)
+![C++17](https://img.shields.io/badge/C%2B%2B-17-2d8ceb?style=flat-square&logo=cplusplus&logoColor=white)
+![Qt 6](https://img.shields.io/badge/Qt-6.10%2B-41cd52?style=flat-square&logo=qt&logoColor=white)
+![FFmpeg 8+](https://img.shields.io/badge/FFmpeg-8%2B-007808?style=flat-square&logo=ffmpeg&logoColor=white)
+![Platform: Windows](https://img.shields.io/badge/platform-Windows-555555?style=flat-square)
+![MCP tools: 45](https://img.shields.io/badge/MCP%20tools-45-a58bd8?style=flat-square)
 
-`tools/package.sh [release folder] [iss file]` rebuilds, refreshes the release folder (Qt runtime,
-FFmpeg, plugins, licenses) and compiles the Inno Setup installer. The defaults are
-`Downloads/v1.0.0` and `Downloads/OpenEditor.iss`. The installer adds the install folder to PATH,
-registers `.oep` and the App Paths key, and the uninstaller removes them again.
+[Features](#features) ·
+[Getting started](#getting-started) ·
+[Text-based editing](#text-based-editing) ·
+[AI](#ai) ·
+[Plugins](#plugins) ·
+[Architecture](#architecture) ·
+[Testing](#testing) ·
+[License](#license)
 
-On first launch the setup wizard checks FFmpeg, FFprobe, the whisper filter, the speech model and the
-MCP bridge. FFmpeg and FFprobe are required: the wizard reopens at startup if they go missing, and can
-download a pinned, hash-checked FFmpeg into the app data folder or use a folder you pick. Run it any
-time from Help > Setup Wizard. `OpenEditor --setup-test <outdir>` tests it, and must run with FFmpeg
-neither beside the executable nor on PATH.
+</div>
 
-## Titles and fonts
+<table align="center">
+  <tr>
+    <td align="center"><b>40</b><br><sub>video and audio effects</sub></td>
+    <td align="center"><b>18</b><br><sub>transitions</sub></td>
+    <td align="center"><b>13</b><br><sub>blend modes</sub></td>
+    <td align="center"><b>11+</b><br><sub>export formats</sub></td>
+    <td align="center"><b>8</b><br><sub>workspaces</sub></td>
+    <td align="center"><b>45</b><br><sub>MCP tools</sub></td>
+  </tr>
+</table>
 
-- **Import fonts** (.ttf, .otf, .ttc, .otc, .woff, .woff2) from File > Import Font, the Graphics
-  panel, or by importing the file like media. Imported fonts are copied to the app data `Fonts`
-  folder and load at every start. Opening a project whose titles use fonts this computer lacks
-  names them, and the Graphics panel marks a substituted font.
-- **Graphics panel**: weight (Thin 100 to Black 900), italic, underline, strikethrough, ALL CAPS,
-  Small Caps, lowercase, Title Case, tracking, kerning, skew, left/center/right/justify, top/middle/
-  bottom, leading, wrap width, solid or linear/radial gradient fill, stroke inside/center/outside,
-  shadow with angle, glow, background with padding, rounded corners and per-line boxes.
-- **Animation**: in and out, each Fade, Typewriter, Slide Up, Slide Down, Pop or Wipe, with a length.
-- **Style presets**: ten built-in looks, and your own saved from the current title.
-- **AI / MCP tools**: import_font, list_fonts, set_text_style, list_text_presets, apply_text_preset;
-  add_title takes preset and style.
-- Titles from older projects render exactly as before: `oe_text_test` compares them with reference
-  renders in `tests/data/text_ref`, and measures each option.
+## Features
 
-## New in 2.0.0
+| | |
+| --- | --- |
+| **Editing** | Multi-track timeline with razor, ripple delete, trim to playhead, linked clips, nested sequences, markers, and paste attributes |
+| **Text-based editing** | Local Whisper transcription. Delete a word in the transcript and the footage goes with it, on every track |
+| **Multicam** | Each video track is a camera angle, with a multicam viewer for cutting between them |
+| **Color** | Color Grade with temperature, tone, lift, gamma, gain and vignette controls, plus LUTs and luma and RGB parade waveforms, vectorscope and histogram |
+| **Compositing** | Keyframes with linear, hold and ease interpolation, 13 blend modes, chroma and luma keys, adjustment layers, titles |
+| **Audio** | Track mixer and meters, clip and track effects, three crossfades, loudness normalization |
+| **Performance** | GPU effects checked against CPU output, proxies, PQ and HLG sources tone mapped to Rec.709 |
+| **AI** | MCP server, in-app Claude assistant, silence removal, scene edit detection |
+| **Extensible** | Native C plugin API for video and audio effects |
 
-- **Audio effects**: Enhance Speech (noise reduction, EQ, de-essing, compression and levelling in
-  one control), DeNoise, DeEsser, DeHum, Noise Gate, Chorus/Flanger. They run in playback and export.
-  Enhance Speech is signal processing, not a neural model: it works offline and on any voice.
-  DeNoise and Enhance Speech delay their clip by 512 samples (about 11 ms).
-- **AI menu**: Enhance Speech on Selected Clips, Auto Ducking (volume keyframes on music under
-  dialogue), Match Loudness (EBU R128 / BS.1770 LUFS), Remove Filler Words (um, uh, hmm, 음, 어),
-  Warp Stabilizer on Selected Clip (position only; rotation and rolling shutter are not corrected).
-- **Export**: a loudness target (-14, -16, -23 or -24 LUFS); peaks stay under -1 dBFS.
-- **Video effects**: Warp Stabilizer, Leave Color, Color Key, Find Edges, Emboss, Twirl, Spherize,
-  Replicate, Linear Wipe, Gradient Ramp, Strobe Light.
-- **MCP / assistant tools**: measure_loudness, match_loudness, enhance_speech, auto_duck,
-  remove_filler_words, stabilize_clip, and loudness_lufs on export_sequence.
-- The setup wizard reopens once after an upgrade and also checks the H.264 and AAC encoders.
-- The window, executable and installer share the app icon (`src/app.ico`, made with `--write-icon`).
+<details>
+<summary><b>All effects and transitions</b></summary>
 
-Tests: `oe_v2_test` measures each new effect against what it should do, and
-`OpenEditor --v2-test <outdir>` drives every new tool in the real window and checks the export.
+<br>
 
-## Transcription and text-based editing
+| Category | Included |
+| --- | --- |
+| Adjust | Brightness & Contrast, Levels, Shadow/Highlight, Exposure, Tint |
+| Color Correction | Color Grade, Hue/Saturation, Color Balance, Black & White, Sepia |
+| Blur & Sharpen | Gaussian Blur, Directional Blur, Sharpen |
+| Stylize | Glow, Mosaic, Posterize, Vignette, Noise, Drop Shadow, Invert |
+| Transform & Distort | Crop, Horizontal Flip, Vertical Flip, Mirror, Wave Warp, Lens Distortion |
+| Keying | Chroma Key, Luma Key |
+| Time | Time Remapping |
+| Audio dynamics | Amplify, Dynamics Compressor, Hard Limiter |
+| Audio filters | High-Pass, Low-Pass, 3-Band Parametric EQ |
+| Audio space | Delay, Studio Reverb |
+| Audio utility | Invert Polarity, Swap Channels, Fill Stereo From Left |
+| Video transitions | Cross, Film and Additive Dissolve, Dip to Black, Dip to White, Wipe, Wipe Down, Barn Doors, Clock Wipe, Iris Round, Iris Box, Iris Diamond, Push, Slide, Cross Zoom |
+| Audio transitions | Constant Power, Constant Gain, Exponential Fade |
 
-The **Text** workspace transcribes the sequence on this computer with Whisper. The default model is
-Large v3 Turbo; models download once, after you confirm, into the app data folder.
+</details>
 
-The mix goes to Whisper in one pass with word timestamps. Do not slice it with a short queue or VAD:
-that makes Whisper re-detect the language for each slice and costs accuracy and speed. Whisper word
-times are only a guide (about 300 ms off), so `placeWords` assigns words to measured speech regions by
-dynamic programming and settles boundaries on energy dips. Measure changes with `oe_align_eval`, which
-scores word starts against ground truth; do not judge timing by eye on one clip.
+<details>
+<summary><b>Export formats</b></summary>
 
-In the Transcript tab, click a word to jump there, or select words and press Delete to cut that
-footage from every track. Captions, markers and links follow, and Undo restores it all.
+<br>
+
+| Type | Formats |
+| --- | --- |
+| Delivery | H.264, HEVC (H.265), VP9 (WebM), AV1 |
+| Mastering | ProRes 422, ProRes 4444, DNxHR HQ |
+| Hardware | H.264 and HEVC with NVIDIA NVENC, H.264 with Intel Quick Sync, H.264 with AMD AMF (listed when the encoder works on your machine) |
+| Audio only | WAV, MP3, AAC |
+| Other | Animated GIF |
+
+</details>
+
+## Getting started
+
+### Requirements
+
+| Dependency | Version | Notes |
+| --- | --- | --- |
+| Qt | 6.10 or newer | Core, Gui, Widgets, Concurrent, Multimedia, Svg, OpenGL, Network, HttpServer. Developed with 6.11.1 MinGW 64-bit |
+| CMake | 3.21 or newer | |
+| Compiler | C++17 | Developed with the MinGW toolchain that ships with Qt |
+| FFmpeg | 8 or newer | Must include the `whisper` filter. Needed at runtime |
+
+> [!IMPORTANT]
+> `ffmpeg` and `ffprobe` must be on `PATH`, or `ffmpeg.exe` and `ffprobe.exe` must sit beside `OpenEditor.exe`.
+
+### Build and run
+
+**Qt Creator:** open `CMakeLists.txt` with the *Desktop Qt 6.11.1 MinGW 64-bit* kit and run `appOpen_Editor`.
+
+**POSIX shell:**
+
+```sh
+./build.sh                  # everything
+./build.sh oe_engine_test   # one target
+```
+
+> [!NOTE]
+> `build.sh` expects Qt in `C:/Qt`. Edit the paths at the top of the script if yours is elsewhere.
+
+Project files are JSON with the `.oep` extension.
+
+## Text-based editing
+
+The **Text** workspace transcribes the sequence on your computer with Whisper. The default model is Large v3 Turbo. Models download once, after you confirm, into the app data folder.
+
+In the Transcript tab:
+
+- **Click a word** to jump to it.
+- **Select words and press Delete** to cut that footage from every track.
+
+Captions, markers and links follow the edit, and Undo restores it all.
+
+<details>
+<summary><b>How word timing works</b></summary>
+
+<br>
+
+The mix goes to Whisper in one pass with word timestamps. Do not slice it with a short queue or VAD: that makes Whisper re-detect the language for each slice and costs accuracy and speed.
+
+Whisper word times are only a guide, about 300 ms off. So `placeWords` assigns words to measured speech regions by dynamic programming and settles boundaries on energy dips.
+
+```mermaid
+flowchart LR
+    A[Sequence mix] --> B[Whisper<br>one pass]
+    B --> C[Rough word times]
+    A --> D[Measured speech regions]
+    C --> E[placeWords<br>dynamic programming]
+    D --> E
+    E --> F[Boundaries settled<br>on energy dips]
+    F --> G[Transcript]
+```
+
+Measure changes with `oe_align_eval`, which scores word starts against ground truth. Do not judge timing by eye on one clip.
+
+</details>
 
 ## AI
 
-**MCP server** (AI > MCP Server, off by default): Streamable HTTP on `127.0.0.1`, bearer token
-required, cross-origin requests refused. It exposes the editor as 45 tools. `oe-mcp.exe` is a stdio
-bridge for clients that launch a local command.
+```mermaid
+flowchart LR
+    C[MCP client] -- HTTP and bearer token --> S
+    L[Local command client] -- stdio --> B[oe-mcp.exe] -- HTTP --> S
+    P[AI Assistant panel] --> T
+    S[MCP server<br>127.0.0.1] --> T[45 editor tools]
+    T --> U[Normal undo stack]
+```
 
-**AI Assistant** panel: chat that drives the same tools through the Claude Messages API, using your
-own API key, which is encrypted for your Windows user. Project details, transcripts and any frames it
-inspects are sent to the API. All AI edits go through normal undo.
+### MCP server
 
-Also in the AI menu: remove silence, scene edit detection, audio normalization.
+Turn it on under **AI > MCP Server**. It is off by default.
+
+- Streamable HTTP on `127.0.0.1`, port `8765` unless you change it
+- Bearer token required, cross-origin requests refused
+- Tools cover project and media, timeline edits, effects, captions, transcription, multicam, frames and export
+
+`oe-mcp.exe` is a stdio bridge for clients that launch a local command. It finds the running editor by itself, so the client only needs its path:
+
+```json
+{
+  "mcpServers": {
+    "open-editor": {
+      "command": "C:/path/to/oe-mcp.exe"
+    }
+  }
+}
+```
+
+### AI Assistant
+
+A chat panel that drives the same tools through the Claude Messages API, using your own API key, which is encrypted for your Windows user.
+
+> [!WARNING]
+> Project details, transcripts and any frames the assistant inspects are sent to the API.
+
+All AI edits go through normal undo. The AI menu also has remove silence, scene edit detection and audio normalization.
 
 ## Plugins
 
-Native effect plugins go in `oe-plugins` beside the executable or in the app data `plugins` folder.
-See `src/plugin_api/oe_plugin.h` and `examples/plugin_duotone`. Plugins run inside the editor process,
-so install only ones you trust.
+Native effect plugins go in `oe-plugins` beside the executable or in the app data `plugins` folder. The API is a small C header: `src/plugin_api/oe_plugin.h`.
 
-## Tests
+| | Video | Audio |
+| --- | --- | --- |
+| **Format** | BGRA8 premultiplied, in place | Interleaved stereo float, 48 kHz |
+| **Parameters** | Evaluated at the current frame | Evaluated at the current frame |
+| **Threads** | Called from render threads, keep it re-entrant | Per-clip `state` pointer |
 
-- `oe_engine_test`: frame accuracy, edit operations, compositing, mixing, every effect, transition and export format.
-- `oe_features_test`: GPU against CPU output, HDR, proxies, time remap, multicam, captions, automation, plugins, analysis.
-- `OpenEditor --ui-smoke <outdir> <media...>`: real mouse events through every tool, undo, save/load, docking, playback.
-- `OpenEditor --text-test <outdir> <model> <media> <expected phrases...>`: transcribe, then delete words with the real key.
-- `OpenEditor --ai-test <outdir>`: MCP over real HTTP, token and origin checks, stdio bridge, assistant loop against a local mock.
+See [`examples/plugin_duotone`](examples/plugin_duotone) for a complete plugin.
 
-## Layout
+> [!CAUTION]
+> Plugins run inside the editor process, so install only ones you trust.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    UI["src/ui<br>panels, timeline, monitors, AI tools"] --> Engine
+    UI --> Core
+    Tests["tests<br>headless"] --> Engine
+    Engine["src/engine<br>compositor, effects, mixer, export"] --> Core["src/core<br>project model, undo, edit ops"]
+    Engine -- pipes --> FFmpeg[ffmpeg and ffprobe]
+    Engine --> Plugins["oe-plugins<br>native DLLs"]
+```
+
+The engine has no widgets, so the app and the headless tests share it through the `oe_core` library.
 
 | Path | Contents |
 | --- | --- |
 | `src/core` | Value-type project model, undo, edit operations, media probing and caches |
 | `src/engine` | ffmpeg pipes, frame reader, compositor, CPU and GPU effects, mixer, playback, export, analysis, plugin host |
 | `src/ui` | Docking panels, timeline, monitors, grading, audio, transcript, AI tools, MCP server, assistant |
-| `src/ui/icons` | Tabler Icons (MIT, see `LICENSE-tabler.txt`) plus small UI glyphs |
+| `src/ui/icons` | Tabler Icons plus small UI glyphs |
+| `src/plugin_api` | Public plugin header |
+| `examples` | Example effect plugin |
+| `tests` | Engine, feature and alignment test programs |
 | `tools` | `oe-mcp` stdio bridge |
 
-Project files are JSON with the `.oep` extension.
+## Testing
+
+| Test | Covers |
+| --- | --- |
+| `oe_engine_test` | Frame accuracy, edit operations, compositing, mixing, every effect, transition and export format |
+| `oe_features_test` | GPU against CPU output, HDR, proxies, time remap, multicam, captions, automation, plugins, analysis |
+| `OpenEditor --ui-smoke <outdir> <media...>` | Real mouse events through every tool, undo, save/load, docking, playback |
+| `OpenEditor --text-test <outdir> <model> <media> <expected phrases...>` | Transcribe, then delete words with the real key |
+| `OpenEditor --ai-test <outdir>` | MCP over real HTTP, token and origin checks, stdio bridge, assistant loop against a local mock |
+
+The two headless suites are registered with CTest:
+
+```sh
+ctest --test-dir build/ninja-release --output-on-failure
+```
+
+## License
+
+Open Editor is released under the [MIT License](LICENSE).
+
+| Third-party | Used for | License |
+| --- | --- | --- |
+| [Qt 6](https://www.qt.io/) | Application framework | Most modules LGPLv3. **Qt HTTP Server is GPLv3 or commercial** |
+| [FFmpeg](https://ffmpeg.org/) | Decode, encode, Whisper filter (separate program) | Depends on your build |
+| [Tabler Icons](https://tabler.io/icons) | UI icons | MIT, see `src/ui/icons/LICENSE-tabler.txt` |
+
+> [!NOTE]
+> The MIT License covers this source code. A distributed binary links Qt HTTP Server, so it must also meet that module's license terms.
