@@ -28,6 +28,9 @@ public:
     QString ffmpeg() const;
     QString ffprobe() const;
     bool available() const { return !ffmpeg().isEmpty(); }
+    // Looked up beside the app, then the folder chosen in setup, then the downloaded copy, then PATH.
+    static QString downloadedToolsDir();
+    void reloadTools();
     QString cacheDir() const;
     bool probe(const QString &path, MediaItem &out);
     void ensureAudio(const QString &path);

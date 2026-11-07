@@ -8,6 +8,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QProcess>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QtConcurrent>
 
@@ -34,7 +35,20 @@ static QString locate(const QString &name)
 {
     QString side = QCoreApplication::applicationDirPath() + "/" + name + ".exe";
     if (QFileInfo::exists(side)) return side;
+    for (const QString &dir : {QSettings().value("tools/ffmpegDir").toString(), MediaCache::downloadedToolsDir()}) {
+        QString p = dir + "/" + name + ".exe";
+        if (!dir.isEmpty() && QFileInfo::exists(p)) return p;
+    }
     return QStandardPaths::findExecutable(name);
+}
+QString MediaCache::downloadedToolsDir()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/ffmpeg";
+}
+void MediaCache::reloadTools()
+{
+    ffmpegPath.clear();
+    ffprobePath.clear();
 }
 QString MediaCache::ffmpeg() const
 {

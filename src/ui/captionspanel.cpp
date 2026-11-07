@@ -11,6 +11,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPointer>
+#include <QSettings>
 #include <QVBoxLayout>
 
 using namespace Theme;
@@ -23,7 +24,7 @@ CaptionsPanel::CaptionsPanel(QWidget *p) : Panel("captions", tr("Text"), p)
     auto *h = new QHBoxLayout;
     modelBox = new QComboBox(this);
     for (auto &n : Analysis::whisperModels()) modelBox->addItem(QString("%1 (%2 MB)").arg(Analysis::whisperModelLabel(n)).arg(Analysis::whisperModelSizeMB(n)), n);
-    modelBox->setCurrentIndex(0);
+    modelBox->setCurrentIndex(qMax(0, modelBox->findData(QSettings().value("transcribe/model"))));
     modelBox->setFocusPolicy(Qt::NoFocus);
     modelBox->setToolTip(tr("Speech model. Larger models are slower and more accurate."));
     langBox = new QComboBox(this);

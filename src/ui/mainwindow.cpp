@@ -21,6 +21,7 @@
 #include <QKeySequenceEdit>
 #include <QMenuBar>
 #include <QMessageBox>
+#include "setupwizard.h"
 #include <QSettings>
 #include <QSpinBox>
 #include <QStandardPaths>
@@ -392,6 +393,7 @@ void MainWindow::buildMenus()
 
     QMenu *h = menuBar()->addMenu(tr("&Help"));
     act(h, tr("Keyboard Shortcuts"), "", [this] { shortcutsDialog(); });
+    act(h, tr("Setup Wizard..."), "", [] { Setup::run(false); });
     act(h, tr("About Open Editor"), "", [this] {
         QMessageBox::about(this, tr("About Open Editor"),
                            tr("<b>Open Editor 2.1</b><br>A non-linear video editor built with Qt.<br><br>"

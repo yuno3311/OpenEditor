@@ -7,6 +7,7 @@
 #include "ui/aitools.h"
 #include "ui/mcpserver.h"
 #include "ui/mainwindow.h"
+#include "ui/setupwizard.h"
 #include "ui/theme.h"
 #include <QApplication>
 #include <QDir>
@@ -242,7 +243,7 @@ static int uiSmoke(MainWindow &w, const QStringList &args)
     return failures ? 1 : 0;
 }
 
-static bool isTest(const QStringList &a) { return a.contains("--ui-smoke") || a.contains("--text-test") || a.contains("--ai-test"); }
+static bool isTest(const QStringList &a) { return a.contains("--ui-smoke") || a.contains("--text-test") || a.contains("--ai-test") || a.contains("--setup-test"); }
 
 int main(int argc, char *argv[])
 {
@@ -259,9 +260,12 @@ int main(int argc, char *argv[])
     PluginHost::loadFrom(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/plugins");
     VideoReader::setCacheBudget(qint64(QSettings().value("cacheGB", 3).toInt()) << 30);
 
+    auto args = QApplication::arguments();
+    if (int t = args.indexOf("--setup-test"); t >= 0) return Setup::selfTest(args.mid(t + 1));
+    if (!isTest(args) && Setup::needed() && !Setup::run(true)) return 1;
+
     MainWindow w;
     w.show();
-    auto args = QApplication::arguments();
     if (int t = args.indexOf("--text-test"); t >= 0) { pump(300); return textSelfTest(w, args.mid(t + 1)); }
     if (int t = args.indexOf("--ai-test"); t >= 0) { pump(300); return aiSelfTest(w, args.mid(t + 1)); }
     int smoke = args.indexOf("--ui-smoke");
