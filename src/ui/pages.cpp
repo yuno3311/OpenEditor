@@ -1,4 +1,8 @@
 #include "pages.h"
+#include "exportqueue.h"
+#include <QInputDialog>
+#include <QMessageBox>
+#include <iterator>
 #include "../core/project.h"
 #include "../engine/compositor.h"
 #include <QDateTime>
@@ -238,7 +242,32 @@ ExportPage::ExportPage(QWidget *p) : QWidget(p)
     format = new QComboBox(setBox);
     for (auto &f : exportFormats()) format->addItem(f.name);
     sf->addRow(tr("Preset"), preset);
+    auto *savePreset = new QPushButton(tr("Save Preset..."), setBox);
+    delPresetBtn = new QPushButton(tr("Delete"), setBox);
+    delPresetBtn->setToolTip(tr("Delete the selected saved preset"));
+    auto *pr = new QHBoxLayout;
+    pr->addWidget(savePreset);
+    pr->addWidget(delPresetBtn);
+    pr->addStretch(1);
+    sf->addRow(QString(), pr);
     sf->addRow(tr("Format"), format);
+    connect(savePreset, &QPushButton::clicked, this, [this] {
+        bool ok = false;
+        const QString cur = preset->currentData().toString();
+        const QString name = QInputDialog::getText(this, tr("Save Preset"), tr("Preset name:"), QLineEdit::Normal, cur, &ok).trimmed();
+        if (!ok || name.isEmpty()) return;
+        for (auto &k : kExportPresets) if (name == k.name) { QMessageBox::information(this, tr("Save Preset"), tr("That is the name of a built-in preset. Choose another.")); return; }
+        ExportSettings c;
+        gather(c);
+        ExportPresets::save(name, c);
+        reloadUserPresets(name);
+    });
+    connect(delPresetBtn, &QPushButton::clicked, this, [this] {
+        const QString name = preset->currentData().toString();
+        if (name.isEmpty()) return;
+        ExportPresets::remove(name);
+        reloadUserPresets();
+    });
     left->addWidget(setBox);
     auto *vBox = new QGroupBox(tr("Video"), leftW);
     auto *vf = new QFormLayout(vBox);
@@ -257,6 +286,9 @@ ExportPage::ExportPage(QWidget *p) : QWidget(p)
     vf->addRow(tr("Quality (CRF)"), crf);
     vf->addRow(tr("Target Bitrate"), kbps);
     vf->addRow(tr("Encoding Speed"), speed);
+    chapters = new QCheckBox(tr("Write Markers as Chapters"), vBox);
+    chapters->setToolTip(tr("Sequence markers become chapters a player can jump between (MP4, MOV, MKV, WebM)."));
+    vf->addRow(chapters);
     left->addWidget(vBox);
     auto *aBox = new QGroupBox(tr("Audio"), leftW);
     auto *af = new QFormLayout(aBox);
@@ -310,12 +342,36 @@ ExportPage::ExportPage(QWidget *p) : QWidget(p)
     bh->addStretch(1);
     cancelBtn = new QPushButton(tr("Cancel"), this);
     cancelBtn->hide();
+    queueBtn = new QPushButton(tr("Add to Queue"), this);
+    queueBtn->setToolTip(tr("Queue this export and keep editing. Queued exports render one after another from the project as it is now."));
     exportBtn = new QPushButton(tr("Export"), this);
     exportBtn->setProperty("primary", true);
     exportBtn->setMinimumWidth(110);
     bh->addWidget(cancelBtn);
+    bh->addWidget(queueBtn);
     bh->addWidget(exportBtn);
     mid->addLayout(bh);
+    // Render queue
+    queueList = new QListWidget(this);
+    queueList->setMaximumHeight(120);
+    queueList->hide();
+    mid->addWidget(queueList);
+    auto *qh = new QHBoxLayout;
+    qh->addStretch(1);
+    clearQueueBtn = new QPushButton(tr("Clear Queue"), this);
+    startQueueBtn = new QPushButton(tr("Start Queue"), this);
+    clearQueueBtn->hide(); startQueueBtn->hide();
+    qh->addWidget(clearQueueBtn);
+    qh->addWidget(startQueueBtn);
+    mid->addLayout(qh);
+    connect(queueBtn, &QPushButton::clicked, this, &ExportPage::addToQueue);
+    connect(startQueueBtn, &QPushButton::clicked, this, [this] { if (EXPORTQ->running()) EXPORTQ->stop(); else EXPORTQ->start(); });
+    connect(clearQueueBtn, &QPushButton::clicked, this, [] { const auto items = EXPORTQ->items(); for (auto &i : items) EXPORTQ->remove(i.id); });
+    connect(EXPORTQ, &ExportQueue::changed, this, &ExportPage::refreshQueue);
+    connect(EXPORTQ, &ExportQueue::finishedAll, this, [this](int done, int failed) {
+        status->setText(failed ? tr("Queue finished: %1 exported, %2 failed.").arg(done).arg(failed) : tr("Queue finished: %1 exported.").arg(done));
+    });
+    reloadUserPresets();
     h->addLayout(mid, 1);
 
     connect(fb, &QToolButton::clicked, this, [this] {
@@ -345,10 +401,92 @@ void ExportPage::prepare(const QImage &img)
         px.setDevicePixelRatio(dpr);
         preview->setPixmap(px);
     }
+    reloadUserPresets(preset->currentText()); // presets saved elsewhere (tools, another window) show up
+    refreshQueue();
     fromPreset();
+}
+void ExportPage::reloadUserPresets(const QString &select)
+{
+    const int builtIn = int(std::size(kExportPresets));
+    preset->blockSignals(true);
+    while (preset->count() > builtIn) preset->removeItem(preset->count() - 1);
+    const QStringList names = ExportPresets::names();
+    if (!names.isEmpty()) preset->insertSeparator(builtIn);
+    for (const QString &n : names) preset->addItem(n, n); // the name as item data marks a saved preset
+    if (!select.isEmpty()) preset->setCurrentText(select);
+    else if (preset->currentIndex() < 0 || preset->currentIndex() >= preset->count()) preset->setCurrentIndex(0);
+    preset->blockSignals(false);
+    delPresetBtn->setEnabled(!preset->currentData().toString().isEmpty());
+}
+void ExportPage::applySettings(const ExportSettings &c)
+{
+    format->setCurrentText(c.format);
+    wEd->setValue(c.width); hEd->setValue(c.height);
+    crf->setValue(c.crf); kbps->setValue(c.kbps);
+    speed->setCurrentText(c.preset);
+    aKbps->setValue(c.audioKbps);
+    withV->setChecked(c.video); withA->setChecked(c.audio);
+    sidecar->setChecked(c.sidecarSrt);
+    chapters->setChecked(c.chapters);
+    const int li = loud->findData(c.loudnessLufs);
+    loud->setCurrentIndex(li < 0 ? 0 : li);
+}
+bool ExportPage::gather(ExportSettings &c)
+{
+    auto q = PRJ->active();
+    const ExportFormat *fmt = nullptr;
+    for (auto &f : exportFormats()) if (f.name == format->currentText()) fmt = &f;
+    if (!fmt) return false;
+    c.format = format->currentText();
+    c.path = QDir(QDir::fromNativeSeparators(folder->text())).filePath(fileName->text() + "." + fmt->ext);
+    c.width = wEd->value(); c.height = hEd->value(); c.crf = crf->value(); c.kbps = kbps->value();
+    c.sidecarSrt = sidecar->isChecked();
+    c.chapters = chapters->isChecked();
+    c.loudnessLufs = loud->currentData().toDouble();
+    c.preset = speed->currentText(); c.audioKbps = aKbps->value(); c.video = withV->isChecked(); c.audio = withA->isChecked();
+    if (q && range->currentIndex() == 1) { c.first = qMax<Frame>(0, q->inPt); c.last = q->outPt; }
+    return q != nullptr;
+}
+void ExportPage::addToQueue()
+{
+    auto q = PRJ->active();
+    ExportSettings c;
+    if (!q || !gather(c)) { status->setText(tr("No sequence to export.")); return; }
+    if (fileName->text().trimmed().isEmpty()) { status->setText(tr("Give the export a file name.")); return; }
+    if (QFileInfo::exists(c.path) && QMessageBox::question(this, tr("Export"), tr("%1 already exists. Replace it?").arg(QFileInfo(c.path).fileName())) != QMessageBox::Yes) return;
+    QString err;
+    if (!EXPORTQ->add(PRJ->s, q->id, c, &err)) { status->setText(err); return; }
+    status->setText(tr("Queued %1. Change the settings or the file name to queue another.").arg(QFileInfo(c.path).fileName()));
+}
+void ExportPage::refreshQueue()
+{
+    const auto &items = EXPORTQ->items();
+    queueList->clear();
+    for (auto &i : items) {
+        QString st = i.state == "queued" ? tr("Waiting") : i.state == "running" ? tr("Rendering %1%").arg(int(i.progress * 100))
+                   : i.state == "done" ? tr("Done") : i.state == "stopped" ? tr("Stopped") : tr("Failed: %1").arg(i.message);
+        queueList->addItem(QString("%1  -  %2  -  %3  -  %4").arg(QFileInfo(i.cfg.path).fileName(), i.sequence, i.cfg.format, st));
+    }
+    const bool any = !items.isEmpty();
+    queueList->setVisible(any);
+    clearQueueBtn->setVisible(any);
+    startQueueBtn->setVisible(any);
+    startQueueBtn->setText(EXPORTQ->running() ? tr("Stop Queue") : tr("Start Queue"));
+    startQueueBtn->setEnabled(EXPORTQ->running() || EXPORTQ->pending() > 0);
+    clearQueueBtn->setEnabled(!EXPORTQ->running());
 }
 void ExportPage::fromPreset()
 {
+    const QString user = preset->currentData().toString();
+    delPresetBtn->setEnabled(!user.isEmpty());
+    if (!user.isEmpty()) {
+        ExportSettings c;
+        gather(c);
+        if (ExportPresets::load(user, &c)) applySettings(c);
+        updateSummary();
+        return;
+    }
+    if (preset->currentIndex() < 0 || preset->currentIndex() >= int(std::size(kExportPresets))) return;
     auto &k = kExportPresets[preset->currentIndex()];
     auto q = PRJ->active();
     if (QString(k.fmt).isEmpty()) return;
@@ -376,17 +514,12 @@ void ExportPage::start()
     auto q = PRJ->active();
     if (!q || job) return;
     if (q->duration() <= 0) { status->setText(tr("The sequence is empty.")); return; }
-    const ExportFormat *fmt = nullptr;
-    for (auto &f : exportFormats()) if (f.name == format->currentText()) fmt = &f;
     ExportSettings c;
-    c.format = format->currentText();
-    c.path = QDir(QDir::fromNativeSeparators(folder->text())).filePath(fileName->text() + "." + fmt->ext);
-    if (QFileInfo::exists(c.path) && QMessageBox::question(this, tr("Export"), tr("%1 already exists. Replace it?").arg(QFileInfo(c.path).fileName())) != QMessageBox::Yes) return;
-    c.width = wEd->value(); c.height = hEd->value(); c.crf = crf->value(); c.kbps = kbps->value();
-    c.sidecarSrt = sidecar->isChecked();
-    c.loudnessLufs = loud->currentData().toDouble();
-    c.preset = speed->currentText(); c.audioKbps = aKbps->value(); c.video = withV->isChecked(); c.audio = withA->isChecked();
-    if (range->currentIndex() == 1) { c.first = qMax<Frame>(0, q->inPt); c.last = q->outPt; }
+    if (!gather(c)) return;
+    if (fileName->text().trimmed().isEmpty()) { status->setText(tr("Give the export a file name.")); return; }
+    const bool seqOut = isImageSequence(c.format);
+    const QString firstOut = seqOut ? QString::asprintf(qPrintable(imageSequencePattern(c.path)), 1) : c.path;
+    if (QFileInfo::exists(firstOut) && QMessageBox::question(this, tr("Export"), tr("%1 already exists. Replace it?").arg(QFileInfo(firstOut).fileName())) != QMessageBox::Yes) return;
     job = new Exporter(PRJ->s, q->id, c, this);
     bar->show(); bar->setValue(0); cancelBtn->show(); exportBtn->setEnabled(false);
     connect(job, &Exporter::progress, this, [this](double fr, const QString &st) { bar->setValue(int(fr * 1000)); status->setText(st); });

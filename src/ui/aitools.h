@@ -25,6 +25,7 @@ private:
     struct Tool { QString name, description; QJsonObject schema; Fn fn; };
     void add(const QString &name, const QString &desc, const QJsonArray &params, const Fn &fn);
     void build();
+    void buildV3();
     int startJob(const QString &kind);
     void updateJob(int id, const QString &state, double progress, const QString &message);
     QVector<Tool> tools;

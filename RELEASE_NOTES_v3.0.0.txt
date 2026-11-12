@@ -1,0 +1,58 @@
+# Open Editor v3.0.0
+
+This release is about two things: never losing work, and a much larger toolbox.
+
+## Your work is protected
+
+- **Safe saves.** A project is written to a temporary file and moved into place, so a crash, power cut or full disk in the middle of a save leaves the old file intact. The previous save is kept beside the project as `.oep.bak`.
+- **Auto-save versions.** While you work, a timestamped version is kept every 3 minutes (20 per project by default). File > Restore Version lists them with their contents and brings any of them back. Restoring never touches your project file until you save.
+- **Crash recovery.** Unsaved changes are written to a recovery file moments after each edit. If the editor or the computer goes down, the next start offers that work back, and Save still goes to your original file.
+- **Damaged files.** A project file that is cut short or unreadable is reported as damaged, and the editor offers the newest backup or auto-save that still opens.
+- **Crash reports.** A crash leaves a short report and a minidump in the Crashes folder.
+- **More ways to save.** Save a Copy, Save Incremental (Film, Film_v002, Film_v003), Revert to Saved, Open Recent, and a warning when a project is already open in another window.
+- Settings are in Edit > Preferences > Auto Save, and the setup wizard asks for them on first run.
+
+## Media management
+
+- **Link Media** reconnects offline files. Locate one and the others in that folder are found with it, or search a whole folder. Files are matched by name, and by size when two share a name.
+- **Project Manager** copies a project and its media into one folder to archive or move.
+- **Remove Unused Media** and a **Project Report** of media, sequences, effects and fonts.
+
+## Editing
+
+- Close All Gaps, Duplicate, Replace With Clip From Source Monitor, Extend Selected Edit to Playhead (E)
+- Fade In / Out for video and audio
+- Layout presets: Fill, Fit, Center, four picture-in-picture corners and four split-screen halves
+- Auto Reframe Sequence: a copy of the sequence at another frame size, such as 1080 x 1920
+- Match Frame (F), Select Clips at Playhead (D)
+- Ease In and Ease Out keyframes
+- Beat markers: the tempo of the music is detected and markers go on the beats
+
+## Effects
+
+- **Video (18):** Unsharp Mask, Radial Blur, Tilt-Shift, Film Grain, Chromatic Aberration, Glitch, Scanlines, Halftone, Threshold, Solarize, Gradient Map, HSL Secondary, Change to Color, Letterbox, Shape Mask, Kaleidoscope, Camera Shake, Timecode
+- **Transitions (8):** Wipe Up, Diagonal Wipe, Venetian Blinds, Checker Wipe, Push Up, Zoom In, Spin Away, Blur Dissolve
+- **Audio (16):** Graphic Equalizer (10 Bands), Bass, Treble, Notch Filter, Bandpass, Multiband Compressor, Stereo Expander, Center Channel Extractor, Channel Volume, Tremolo, Auto-Pan, Phaser, Distortion, Bit Crusher, Voice Changer, Pitch Shifter
+
+## Export
+
+- **Render queue:** queue several exports and keep editing. Each renders from the project as it was when queued.
+- **Your own presets**, saved from the Export page
+- **Chapters** from sequence markers in MP4, MOV, MKV and WebM
+- **New formats:** PNG Sequence, JPEG Sequence, FLAC, Opus, 24-bit WAV, H.264 in Matroska
+- **Export Other:** CMX3600 EDL, markers as CSV, markers as YouTube chapters
+- An export is rendered under a temporary name. Stopping it, or a failure, leaves the file from last time untouched.
+
+## AI tools
+
+25 new tools, 81 in total, all through the normal undo stack: autosave_now, list_versions, restore_version, project_report, list_offline_media, relink_media, remove_unused_media, collect_project, close_gaps, duplicate_clips, replace_clip, extend_to_frame, fade_clip, apply_layout, auto_reframe, set_keyframe_interpolation, detect_beats, export_edl, export_markers, list_export_presets, save_export_preset, queue_export, start_export_queue, export_queue_status, clear_export_queue.
+
+## Upgrading
+
+Install over 1.x or 2.x. Projects from earlier versions open unchanged. The setup wizard runs once after the upgrade and now also checks that the auto-save folder can be written.
+
+## Known limits
+
+- Reversed clips that are also sped up still change pitch.
+- The EDL is cuts-only: transitions are written as comments.
+- Auto Reframe scales and centres each picture; it does not follow a subject.

@@ -19,6 +19,7 @@ Project::Project(QObject *par) : QObject(par)
 {
     undo.setUndoLimit(200);
     connect(&undo, &QUndoStack::cleanChanged, this, &Project::dirtyChanged);
+    connect(this, &Project::changed, this, [this] { ++revision; });
 }
 
 void Project::applySnapshot(const ProjectState &st)
@@ -79,22 +80,36 @@ void Project::reset()
 
 bool Project::save(const QString &path)
 {
-    QFile f(path);
-    if (!f.open(QIODevice::WriteOnly)) return false;
-    f.write(QJsonDocument(stateToJson(s)).toJson(QJsonDocument::Compact));
+    if (!Vault::saveProject(path, s, Vault::options().backup, &lastError)) return false;
     filePath = path;
     undo.setClean();
     emit dirtyChanged();
     return true;
 }
+bool Project::saveCopy(const QString &path)
+{
+    return Vault::saveProject(path, s, false, &lastError);
+}
+void Project::adopt(const ProjectState &st, const QString &path, bool dirty)
+{
+    reset();
+    s = st;
+    for (auto &m : s.media)
+        if (!m.path.isEmpty()) m.offline = !QFileInfo::exists(m.path);
+    filePath = path;
+    loaded = true;
+    if (dirty) undo.resetClean();
+    emit activeSeqChanged();
+    emit changed();
+    emit dirtyChanged();
+}
 bool Project::load(const QString &path)
 {
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) return false;
-    auto doc = QJsonDocument::fromJson(f.readAll());
-    if (!doc.isObject() || doc.object()["format"].toString() != "OpenEditorProject") return false;
+    ProjectState st;
+    lastLoad = Vault::read(path, &st);
+    if (lastLoad != Vault::LoadResult::Ok) { lastError = Vault::describe(lastLoad); return false; }
     reset();
-    s = stateFromJson(doc.object());
+    s = st;
     for (auto &m : s.media)
         if (!m.path.isEmpty() && !QFileInfo::exists(m.path)) m.offline = true;
     filePath = path;

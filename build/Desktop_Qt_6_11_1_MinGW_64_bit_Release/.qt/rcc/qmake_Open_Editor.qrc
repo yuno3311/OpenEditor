@@ -1,6 +1,0 @@
-<RCC>
-  <qresource prefix="/qt/qml/Open_Editor">
-    <file alias="qmldir">C:/QT Proj/Open_Editor/build/Desktop_Qt_6_11_1_MinGW_64_bit_Release/Open_Editor/qmldir</file>
-  </qresource>
-</RCC>
-

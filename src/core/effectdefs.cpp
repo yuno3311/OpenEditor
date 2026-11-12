@@ -134,6 +134,28 @@ static QVector<EffectDef> build()
         ang("angle", "Angle", 180), pct("blend", "Blend With Original", 0)});
     add("strobe", "Strobe Light", "Stylize", {col("color", "Strobe Color", 0xFFFFFF), pct("blend", "Blend With Original", 0),
         num("period", "Strobe Period", .5, .05, 5, .01, " s"), num("dur", "Strobe Duration", .1, .01, 5, .01, " s")});
+    // --- New in 3.0
+    add("unsharp", "Unsharp Mask", "Blur & Sharpen", {num("amount", "Amount", 80, 0, 300, 1, "%"), lim(num("radius", "Radius", 3, .5, 50, .1), .1, 200), num("thresh", "Threshold", 0, 0, 100)});
+    add("radialblur", "Radial Blur", "Blur & Sharpen", {cho("type", "Blur Method", 0, {"Zoom", "Spin"}), num("amount", "Amount", 20, 0, 100), pct("cx", "Centre X", 50), pct("cy", "Centre Y", 50)});
+    add("tiltshift", "Tilt-Shift", "Blur & Sharpen", {pct("focus", "Focus Position", 50), pct("size", "Focus Size", 25), lim(num("blur", "Blur", 12, 0, 60), 0, 300), ang("angle", "Angle", 0)});
+    add("grain", "Film Grain", "Noise & Grain", {pct("amount", "Amount", 20), lim(num("size", "Grain Size", 1.5, 1, 8, .1), 1, 32), tog("color", "Colour Grain", false), tog("animate", "Animate", true)});
+    add("rgbsplit", "Chromatic Aberration", "Stylize", {num("amount", "Amount", 6, 0, 60, .1), ang("angle", "Angle", 0)});
+    add("glitch", "Glitch", "Stylize", {pct("amount", "Amount", 35), lim(num("block", "Block Height", 24, 2, 200), 1, 1000), num("speed", "Speed", 8, .5, 30, .1), num("split", "Colour Split", 8, 0, 60, .1)});
+    add("scanlines", "Scanlines", "Stylize", {lim(num("spacing", "Line Spacing", 4, 2, 40), 2, 400), pct("dark", "Darkness", 40), num("scroll", "Scroll Speed", 0, -200, 200)});
+    add("halftone", "Halftone", "Stylize", {lim(num("size", "Dot Size", 10, 3, 80), 2, 400), ang("angle", "Screen Angle", 45), col("back", "Background", 0x000000)});
+    add("threshold", "Threshold", "Stylize", {num("level", "Level", 50, 0, 100, 1, "%"), num("soft", "Softness", 0, 0, 50)});
+    add("solarize", "Solarize", "Stylize", {pct("thresh", "Threshold", 50)});
+    add("gradientmap", "Gradient Map", "Color Correction", {col("low", "Shadows", 0x10204A), col("mid", "Midtones", 0xC8506E), col("high", "Highlights", 0xFFE6AA), pct("blend", "Blend With Original", 0)});
+    add("hslsecondary", "HSL Secondary", "Color Correction", {col("key", "Key Colour", 0x2060D0), num("range", "Hue Range", 30, 1, 180, 1, "\xC2\xB0"), num("soft", "Softness", 15, 0, 90, 1, "\xC2\xB0"),
+        pct("minsat", "Minimum Saturation", 15), ang("hue", "Hue Shift", 0), num("sat", "Saturation", 0, -100, 100), num("light", "Lightness", 0, -100, 100), tog("show", "Show Mask", false)});
+    add("changecolor", "Change to Color", "Color Correction", {col("from", "From", 0xD03030), col("to", "To", 0x3060D0), num("tol", "Tolerance", 30, 1, 180, 1, "\xC2\xB0"), num("soft", "Softness", 15, 0, 90, 1, "\xC2\xB0")});
+    add("letterbox", "Letterbox", "Transform", {cho("aspect", "Aspect Ratio", 0, {"2.39:1 Scope", "2.35:1", "2:1", "1.85:1", "16:9", "4:3", "1:1", "4:5", "9:16"}), col("color", "Bar Colour", 0x000000), pct("opacity", "Opacity", 100)});
+    add("shapemask", "Shape Mask", "Keying", {cho("shape", "Shape", 0, {"Ellipse", "Rectangle"}), pct("cx", "Centre X", 50), pct("cy", "Centre Y", 50), lim(pct("w", "Width", 50, 0, 200), 0, 400),
+        lim(pct("h", "Height", 50, 0, 200), 0, 400), ang("rot", "Rotation", 0), pct("feather", "Feather", 10), tog("invert", "Invert", false)});
+    add("kaleido", "Kaleidoscope", "Distort", {lim(num("segments", "Segments", 6, 2, 24), 2, 64), ang("angle", "Angle", 0), pct("cx", "Centre X", 50), pct("cy", "Centre Y", 50)});
+    add("shake", "Camera Shake", "Distort", {num("amount", "Amount", 12, 0, 100, .1), num("rot", "Rotation", 1, 0, 15, .1, "\xC2\xB0"), num("speed", "Speed", 4, .1, 30, .1, " Hz"), tog("autoscale", "Hide Edges", true)});
+    add("timecode", "Timecode", "Video", {cho("source", "Time Source", 0, {"Sequence", "Clip Source"}), lim(num("size", "Size", 5, 1, 20, .1, "%"), .5, 50),
+        cho("pos", "Position", 1, {"Top Left", "Top Centre", "Top Right", "Bottom Left", "Bottom Centre", "Bottom Right"}), pct("back", "Background Opacity", 60), col("color", "Text Colour", 0xFFFFFF)});
     add("lumakey", "Luma Key", "Keying", {num("thresh", "Threshold", 20, 0, 100), num("cutoff", "Softness", 10, 0, 100), tog("invert", "Invert", false)});
     // --- Audio
     add("a_gain", "Amplify", "Amplitude and Compression", {db("gain", "Gain", 0, -60, 30)}, true);
@@ -157,6 +179,26 @@ static QVector<EffectDef> build()
         num("hold", "Hold", 50, 0, 500, 1, " ms"), num("release", "Release", 150, 5, 2000, 1, " ms"), db("range", "Range", -60, -96, 0)}, true);
     add("a_chorus", "Chorus/Flanger", "Modulation", {cho("mode", "Mode", 0, {"Chorus", "Flanger"}), num("rate", "Rate", 1.2, .05, 10, .01, " Hz"),
         pct("depth", "Depth", 50), pct("mix", "Mix", 50), pct("fb", "Feedback", 30)}, true);
+    // --- New in 3.0
+    add("a_geq", "Graphic Equalizer (10 Bands)", "Filter and EQ", {db("g0", "31 Hz", 0, -18, 18), db("g1", "62 Hz", 0, -18, 18), db("g2", "125 Hz", 0, -18, 18), db("g3", "250 Hz", 0, -18, 18),
+        db("g4", "500 Hz", 0, -18, 18), db("g5", "1 kHz", 0, -18, 18), db("g6", "2 kHz", 0, -18, 18), db("g7", "4 kHz", 0, -18, 18), db("g8", "8 kHz", 0, -18, 18), db("g9", "16 kHz", 0, -18, 18)}, true);
+    add("a_bass", "Bass", "Filter and EQ", {db("gain", "Boost", 6, -24, 24), lim(num("freq", "Frequency", 120, 40, 500, 1, " Hz"), 20, 2000)}, true);
+    add("a_treble", "Treble", "Filter and EQ", {db("gain", "Boost", 6, -24, 24), lim(num("freq", "Frequency", 8000, 2000, 16000, 1, " Hz"), 1000, 20000)}, true);
+    add("a_notch", "Notch Filter", "Filter and EQ", {lim(num("freq", "Frequency", 1000, 20, 20000, 1, " Hz"), 20, 22000), lim(num("q", "Q", 10, .5, 100, .1), .1, 200)}, true);
+    add("a_bandpass", "Bandpass", "Filter and EQ", {lim(num("freq", "Centre", 1000, 20, 20000, 1, " Hz"), 20, 22000), lim(num("q", "Q", 1, .1, 30, .1), .1, 100)}, true);
+    add("a_mbcomp", "Multiband Compressor", "Amplitude and Compression", {lim(num("lowF", "Low Crossover", 200, 60, 1000, 1, " Hz"), 40, 2000), lim(num("highF", "High Crossover", 3000, 1000, 12000, 1, " Hz"), 500, 16000),
+        db("tLow", "Low Threshold", -24, -60, 0), db("tMid", "Mid Threshold", -24, -60, 0), db("tHigh", "High Threshold", -24, -60, 0), num("ratio", "Ratio", 3, 1, 20, .1),
+        num("attack", "Attack", 10, 1, 200, 1, " ms"), num("release", "Release", 150, 10, 1000, 1, " ms"), db("makeup", "Make-up Gain", 0, 0, 24)}, true);
+    add("a_width", "Stereo Expander", "Stereo Imagery", {lim(pct("width", "Stereo Width", 150, 0, 300), 0, 400)}, true);
+    add("a_center", "Center Channel Extractor", "Stereo Imagery", {cho("mode", "Extract", 0, {"Remove Centre (Karaoke)", "Keep Centre Only"}), pct("amount", "Amount", 100)}, true);
+    add("a_chanvol", "Channel Volume", "Amplitude and Compression", {db("left", "Left", 0, -60, 12), db("right", "Right", 0, -60, 12)}, true);
+    add("a_tremolo", "Tremolo", "Modulation", {num("rate", "Rate", 5, .1, 20, .01, " Hz"), pct("depth", "Depth", 60)}, true);
+    add("a_autopan", "Auto-Pan", "Modulation", {num("rate", "Rate", .5, .02, 10, .01, " Hz"), pct("depth", "Depth", 100)}, true);
+    add("a_phaser", "Phaser", "Modulation", {num("rate", "Rate", .4, .02, 10, .01, " Hz"), pct("depth", "Depth", 70), pct("fb", "Feedback", 40), pct("mix", "Mix", 50)}, true);
+    add("a_distort", "Distortion", "Special", {db("drive", "Drive", 18, 0, 48), lim(num("tone", "Tone", 6000, 500, 20000, 1, " Hz"), 200, 22000), pct("mix", "Mix", 100), db("out", "Output", -6, -30, 6)}, true);
+    add("a_bitcrush", "Bit Crusher", "Special", {lim(num("bits", "Bit Depth", 8, 1, 16), 1, 24), lim(num("down", "Sample Rate Reduction", 4, 1, 50), 1, 200), pct("mix", "Mix", 100)}, true);
+    add("a_voicefx", "Voice Changer", "Special", {cho("preset", "Voice", 0, {"Telephone", "AM Radio", "Megaphone", "Walkie-Talkie"}), pct("amount", "Amount", 100)}, true);
+    add("a_pitch", "Pitch Shifter", "Time and Pitch", {lim(num("semi", "Semitones", 3, -12, 12, .1), -24, 24), pct("mix", "Mix", 100)}, true);
     add("a_invert", "Invert Polarity", "Special", {}, true);
     add("a_swap", "Swap Channels", "Special", {}, true);
     add("a_mono", "Fill Stereo From Left", "Special", {}, true);
@@ -185,6 +227,9 @@ const QVector<TransitionDef> &transitions()
         {"barn", "Barn Doors", "Wipe"}, {"clock", "Clock Wipe", "Wipe"}, {"irisround", "Iris Round", "Iris"},
         {"irisbox", "Iris Box", "Iris"}, {"irisdiamond", "Iris Diamond", "Iris"}, {"push", "Push", "Slide"},
         {"slide", "Slide", "Slide"}, {"zoom", "Cross Zoom", "Zoom"},
+        {"wipeU", "Wipe Up", "Wipe"}, {"wipediag", "Diagonal Wipe", "Wipe"}, {"blinds", "Venetian Blinds", "Wipe"},
+        {"checker", "Checker Wipe", "Wipe"}, {"pushU", "Push Up", "Slide"}, {"zoomin", "Zoom In", "Zoom"},
+        {"spin", "Spin Away", "Zoom"}, {"blurdissolve", "Blur Dissolve", "Dissolve"},
         {"a_cpower", "Constant Power", "Crossfade", true}, {"a_cgain", "Constant Gain", "Crossfade", true},
         {"a_expo", "Exponential Fade", "Crossfade", true}};
     return v;

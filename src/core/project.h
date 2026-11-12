@@ -1,6 +1,8 @@
 // Project document: owns the state, the undo stack and the (non-undoable) UI selection.
 #pragma once
 #include "model.h"
+#include "vault.h"
+#include "vault.h"
 #include <QObject>
 #include <QSet>
 #include <QUndoStack>
@@ -27,7 +29,14 @@ public:
 
     void reset();
     bool save(const QString &path);
+    bool saveCopy(const QString &path);          // writes the file without making it the project file
     bool load(const QString &path);
+    // Replaces the project with a recovered or restored state. filePath stays where Save should go.
+    void adopt(const ProjectState &st, const QString &path, bool dirty);
+    bool isDirty() const { return !undo.isClean(); }
+    Vault::LoadResult lastLoad = Vault::LoadResult::Ok;
+    QString lastError;
+    quint64 revision = 0;                        // counts model changes; auto-save skips unchanged states
     QString displayName() const;
 
     void setPlayhead(Frame f);

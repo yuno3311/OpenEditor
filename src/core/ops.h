@@ -3,6 +3,7 @@
 #pragma once
 #include "model.h"
 #include <QSet>
+#include <QStringList>
 
 namespace Ops {
 struct Patch { // which destination track indexes a source edit goes to (-1 = none)
@@ -33,4 +34,15 @@ void dropTransitionsInRange(Track &t, Frame a, Frame b);
 void rippleRemoveRanges(ProjectState &st, Sequence &q, QVector<QPair<Frame, Frame>> ranges);
 int makeMulticam(ProjectState &st, const QString &name, const QVector<int> &mediaIds, const QVector<double> &offsets, int w, int h, int num, int den);
 void cutToAngle(ProjectState &st, Sequence &q, Frame f, int angle);
+// --- 3.0
+QVector<QPair<Frame, Frame>> findGaps(const Sequence &q);           // stretches with nothing on any track
+int closeGaps(ProjectState &st, Sequence &q);                        // ripple-removes them; returns how many
+QVector<int> duplicateClips(ProjectState &st, Sequence &q, const QSet<int> &ids); // copies go in right after
+bool replaceClip(ProjectState &st, Sequence &q, int clipId, int mediaId, QString *err = nullptr);
+int extendToFrame(const ProjectState &st, Sequence &q, const QSet<int> &ids, Frame f);
+bool fadeClip(Clip &c, Frame fadeIn, Frame fadeOut);                 // opacity or volume keyframes
+QStringList layoutPresets();
+bool applyLayout(const Sequence &q, Clip &c, const QString &preset); // fill, fit, picture-in-picture, splits
+int autoReframe(ProjectState &st, int seqId, int w, int h, const QString &name); // new sequence id
+int setInterpolation(Clip &c, const QString &effect, const QString &param, Interp i);
 }

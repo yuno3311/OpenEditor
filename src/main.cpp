@@ -38,6 +38,8 @@ static void pump(int ms)
 int textSelfTest(MainWindow &w, const QStringList &args);
 int aiSelfTest(MainWindow &w, const QStringList &args);
 int v2SelfTest(MainWindow &w, const QStringList &args);
+int v3SelfTest(MainWindow &w, const QStringList &args);
+int v3CrashStage(MainWindow &w, const QStringList &args);
 
 static int failures = 0;
 static void expect(bool ok, const char *what)
@@ -277,7 +279,7 @@ static bool writeIcon(const QString &path)
     return f.open(QIODevice::WriteOnly) && f.write(out) == out.size();
 }
 
-static bool isTest(const QStringList &a) { return a.contains("--ui-smoke") || a.contains("--text-test") || a.contains("--ai-test") || a.contains("--setup-test") || a.contains("--v2-test"); }
+static bool isTest(const QStringList &a) { return a.contains("--ui-smoke") || a.contains("--text-test") || a.contains("--ai-test") || a.contains("--setup-test") || a.contains("--v2-test") || a.contains("--v3-test") || a.contains("--crash-stage"); }
 
 int main(int argc, char *argv[])
 {
@@ -305,11 +307,15 @@ int main(int argc, char *argv[])
     if (int t = args.indexOf("--text-test"); t >= 0) { pump(300); return textSelfTest(w, args.mid(t + 1)); }
     if (int t = args.indexOf("--ai-test"); t >= 0) { pump(300); return aiSelfTest(w, args.mid(t + 1)); }
     if (int t = args.indexOf("--v2-test"); t >= 0) { pump(300); return v2SelfTest(w, args.mid(t + 1)); }
+    if (int t = args.indexOf("--v3-test"); t >= 0) { pump(300); return v3SelfTest(w, args.mid(t + 1)); }
+    if (int t = args.indexOf("--crash-stage"); t >= 0) { pump(300); return v3CrashStage(w, args.mid(t + 1)); }
     int smoke = args.indexOf("--ui-smoke");
     if (smoke >= 0 && args.size() > smoke + 2) {
         pump(300);
         return uiSmoke(w, args.mid(smoke + 1));
     }
-    if (args.size() > 1 && args[1].endsWith(".oep") && PRJ->load(args[1])) w.showPage(MainWindow::PageEdit);
+    // Unsaved work from a session that crashed comes first; otherwise the project given on the command line.
+    const bool recovered = w.startupRecovery();
+    if (!recovered && args.size() > 1 && args[1].endsWith(".oep", Qt::CaseInsensitive)) w.openFile(args[1]);
     return QApplication::exec();
 }

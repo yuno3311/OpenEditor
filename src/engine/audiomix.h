@@ -34,7 +34,14 @@ struct FxState {
     int cpos[4] = {0, 0, 0, 0};
     float lp[4][2] = {};
     std::shared_ptr<void> plugin;
+    // 3.0 effects
+    QVector<Biquad> bq;
+    QVector<float> ring;
+    int rpos = 0;
+    float v[16] = {};
+    double ph2 = 0;
 };
+bool runAudioFxV3(const Effect &e, FxState &s, float *buf, int frames, Frame kt); // false if e is not a 3.0 effect
 
 // Grain alignments for one sped-up clip, so playback, seeking and export render identical samples.
 struct StretchCache {

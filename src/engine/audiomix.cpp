@@ -176,6 +176,7 @@ void AudioMixer::runFx(const Effect &e, quint64 key, float *b, int n, Frame kt)
     auto V = [&](const char *id, double d = 0) { return e.val(id, kt, d); };
     FxState &s = fx[key];
     if (t.startsWith(QLatin1String("plugin."))) { PluginHost::audio(e, b, n, kt, s.plugin); return; }
+    if (runAudioFxV3(e, s, b, n, kt)) return;
     if (t == "a_gain") {
         float g = dbToGain(V("gain"));
         for (int i = 0; i < n * 2; ++i) b[i] *= g;

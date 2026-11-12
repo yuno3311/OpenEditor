@@ -13,7 +13,7 @@ using Frame = qint64;
 
 enum class MediaKind { Video, Audio, Image, Nested, Color, Bars, Black, Text, Adjustment };
 enum class TrackType { Video, Audio };
-enum class Interp { Linear, Hold, Ease };
+enum class Interp { Linear, Hold, Ease, EaseIn, EaseOut }; // saved by number: add at the end only
 
 struct Keyframe {
     Frame t = 0;

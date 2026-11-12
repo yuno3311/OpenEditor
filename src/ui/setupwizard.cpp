@@ -1,6 +1,9 @@
 #include "setupwizard.h"
 #include "../core/mediacache.h"
 #include "../engine/analysis.h"
+#include "../core/vault.h"
+#include <QCheckBox>
+#include <QSpinBox>
 #include <QAbstractButton>
 #include <QApplication>
 #include <QComboBox>
@@ -69,6 +72,15 @@ Setup::Status Setup::check()
     s.encoders = s.ffmpegOk && runTool(s.ffmpeg, {"-hide_banner", "-encoders"}, &out) && out.contains(QRegularExpression("\\slibx264\\s")) && out.contains(QRegularExpression("\\saac\\s"));
     for (auto &n : Analysis::whisperModels()) s.model |= QFileInfo::exists(Analysis::whisperModelPath(n));
     s.bridge = QFileInfo::exists(QCoreApplication::applicationDirPath() + "/oe-mcp.exe");
+    // Auto-save and crash recovery are only as good as the folder they write to.
+    const QString probe = Vault::root() + "/write-test.tmp";
+    QString err;
+    const qint64 space = Vault::freeBytes(Vault::root());
+    if (!Vault::writeAtomic(probe, "ok", &err)) s.storageNote = QObject::tr("Cannot write to %1 (%2). Auto-save and crash recovery will not work.").arg(QDir::toNativeSeparators(Vault::root()), err);
+    else if (space >= 0 && space < (200 << 20)) s.storageNote = QObject::tr("Only %1 MB free on that drive. Auto-save may stop when it fills up.").arg(space >> 20);
+    else s.storage = true;
+    QFile::remove(probe);
+    s.recoverable = Vault::Session::orphans().size();
     return s;
 }
 
@@ -202,7 +214,7 @@ public:
         g->setColumnStretch(2, 1);
         g->setHorizontalSpacing(14);
         g->setVerticalSpacing(8);
-        for (int i = 0; i < 6; ++i) {
+        for (int i = 0; i < 7; ++i) {
             for (int c = 0; c < 3; ++c) { rows[i][c] = new QLabel(this); g->addWidget(rows[i][c], i, c); }
             rows[i][2]->setWordWrap(true);
             rows[i][2]->setStyleSheet("color:#8a8a8a;");
@@ -257,6 +269,10 @@ public:
         row(3, tr("Speech model"), st.model, false, st.model ? tr("Installed") : tr("Choose one on the next page"));
         row(4, tr("MCP bridge"), st.bridge, false, st.bridge ? tr("Installed") : tr("oe-mcp.exe is missing. Reinstall Open Editor if you use MCP clients."));
         row(5, tr("Export encoders"), st.encoders, false, st.encoders ? tr("H.264 and AAC are available") : tr("This FFmpeg lacks libx264 or AAC, so the default H.264 export fails. Download FFmpeg to fix it."));
+        row(6, tr("Auto-save and recovery"), st.storage, false,
+            st.storage ? (st.recoverable ? tr("Ready. Unsaved work from %n earlier session(s) is waiting: you can recover it when the editor opens.", "", st.recoverable)
+                                         : tr("Ready. Versions and crash recovery go to %1").arg(path(Vault::root())))
+                       : st.storageNote);
         int missing = !st.ffmpegOk + !st.ffprobeOk;
         banner->setText(missing ? tr("<span style='color:%1'><b>%2 required item(s) missing.</b></span> Open Editor cannot import, play or export media until FFmpeg and FFprobe are ready. Download them or add them below to continue.").arg(kBad).arg(missing)
                                 : tr("<span style='color:%1'><b>Everything required is ready.</b></span>").arg(kGood));
@@ -296,7 +312,7 @@ public:
         refresh();
     }
     Setup::Status st;
-    QLabel *banner, *note, *rows[6][3];
+    QLabel *banner, *note, *rows[7][3];
     QPushButton *download, *locate, *recheck, *stop;
     QProgressBar *bar;
     FfmpegInstaller *job = nullptr;
@@ -374,9 +390,36 @@ public:
         text->setWordWrap(true);
         auto *v = new QVBoxLayout(this);
         v->addWidget(text);
+        // Protection settings, so a first-time user chooses them once instead of finding them later.
+        const Vault::Options o = Vault::options();
+        autoOn = new QCheckBox(tr("Auto-save a version of my project every"), this);
+        autoOn->setChecked(o.autosave);
+        minutes = new QSpinBox(this);
+        minutes->setRange(1, 120);
+        minutes->setValue(o.minutes);
+        minutes->setSuffix(tr(" min"));
+        auto *row = new QHBoxLayout;
+        row->addWidget(autoOn);
+        row->addWidget(minutes);
+        row->addStretch(1);
+        v->addLayout(row);
+        recovery = new QCheckBox(tr("Keep unsaved changes recoverable after a crash or power cut"), this);
+        recovery->setChecked(o.recovery);
+        v->addWidget(recovery);
         v->addStretch(1);
         setFinalPage(true);
     }
+    bool validatePage() override
+    {
+        Vault::Options o = Vault::options();
+        o.autosave = autoOn->isChecked();
+        o.minutes = minutes->value();
+        o.recovery = recovery->isChecked();
+        Vault::setOptions(o);
+        return true;
+    }
+    QCheckBox *autoOn, *recovery;
+    QSpinBox *minutes;
     void initializePage() override
     {
         auto s = Setup::check();
@@ -386,11 +429,12 @@ public:
         if (!s.bridge) later << tr("MCP clients need oe-mcp.exe: reinstall Open Editor to restore it.");
         if (!s.encoders) later << tr("H.264 export needs an FFmpeg build with libx264 and AAC.");
         const QStringList news = {
-            tr("<b>Enhance Speech</b>, <b>DeNoise</b>, <b>DeEsser</b>, <b>DeHum</b>, <b>Noise Gate</b> and <b>Chorus/Flanger</b> audio effects"),
-            tr("<b>Auto Ducking</b> and <b>Match Loudness</b> in the AI menu, and a loudness target on the Export page"),
-            tr("<b>Remove Filler Words</b> from the transcript and the footage"),
-            tr("<b>Import fonts</b> (File > Import Font) and many more title options: weights, gradients, glow, rounded backgrounds, style presets and in/out animations"),
-            tr("<b>Warp Stabilizer</b>, plus Leave Color, Color Key, Find Edges, Emboss, Twirl, Spherize, Replicate, Linear Wipe, Gradient Ramp and Strobe Light")};
+            tr("<b>Nothing gets lost:</b> timed auto-save versions (File > Restore Version), recovery of unsaved work after a crash or power cut, safe saves with a backup, and crash reports"),
+            tr("<b>Media management:</b> Link Media for offline files, Project Manager to collect a project into one folder, Remove Unused Media and a Project Report"),
+            tr("<b>18 video effects</b> (Unsharp Mask, Film Grain, Chromatic Aberration, Glitch, HSL Secondary, Shape Mask, Letterbox, Tilt-Shift, Timecode and more) and <b>8 transitions</b>"),
+            tr("<b>16 audio effects:</b> 10-band Graphic EQ, Multiband Compressor, Pitch Shifter, Stereo Expander, Voice Changer, Phaser, Distortion and more"),
+            tr("<b>Editing:</b> Close Gaps, Duplicate, Replace Clip, Extend Edit, Fade In/Out, layout presets, Auto Reframe, Match Frame, Ease In/Out keyframes and beat markers from music"),
+            tr("<b>Export:</b> a render queue, your own presets, chapters from markers, image sequences, FLAC, Opus and MKV, plus EDL and marker lists")};
         text->setText(tr("Open Editor is ready to use.") + (later.isEmpty() ? QString() : "<br><br>" + tr("Still optional:") + "<ul><li>" + later.join("</li><li>") + "</li></ul>")
                       + "<br><br>" + tr("New in %1:").arg(QCoreApplication::applicationVersion()) + "<ul><li>" + news.join("</li><li>") + "</li></ul>"
                       + tr("You can run this wizard again from Help > Setup Wizard."));
@@ -406,13 +450,14 @@ public:
         setWizardStyle(QWizard::ClassicStyle);
         setTitleFormat(Qt::RichText);
         setOption(QWizard::NoBackButtonOnStartPage);
-        setMinimumSize(680, 500);
+        setMinimumSize(700, 560);
         addPage(deps = new DepsPage);
         addPage(model = new ModelPage);
-        addPage(new DonePage);
+        addPage(done_ = new DonePage);
     }
     DepsPage *deps;
     ModelPage *model;
+    DonePage *done_;
 };
 
 } // namespace
@@ -486,14 +531,17 @@ int Setup::selfTest(const QStringList &args)
     expect(CACHE->ffmpeg().startsWith(MediaCache::downloadedToolsDir()), "the downloaded FFmpeg is the one in use");
     expect(check().whisper, "the downloaded FFmpeg has the whisper filter");
     expect(check().encoders, "the downloaded FFmpeg has the H.264 and AAC encoders");
+    expect(check().storage && w.deps->rows[6][1]->text().contains("Ready"), "the auto-save and recovery folder is checked and ready");
     shot("3_ready");
     w.next();
     shot("4_model");
     w.next();
     shot("5_done");
+    w.done_->minutes->setValue(7);
     w.button(QWizard::FinishButton)->click();
     pump(100);
     expect(w.result() == QDialog::Accepted, "wizard finishes");
+    expect(Vault::options().minutes == 7 && Vault::options().autosave && Vault::options().recovery, "the auto-save choices made on the last page are saved");
     markDone();
     expect(!needed(), "wizard is not needed again");
     QSettings().setValue("setup/version", "1.0.0");

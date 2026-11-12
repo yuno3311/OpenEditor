@@ -14,7 +14,7 @@ Timeline editing, color, audio and local speech-to-text, plus an MCP server that
 ![Qt 6](https://img.shields.io/badge/Qt-6.10%2B-41cd52?style=flat-square&logo=qt&logoColor=white)
 ![FFmpeg 8+](https://img.shields.io/badge/FFmpeg-8%2B-007808?style=flat-square&logo=ffmpeg&logoColor=white)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows-555555?style=flat-square)
-![MCP tools: 45](https://img.shields.io/badge/MCP%20tools-45-a58bd8?style=flat-square)
+![MCP tools: 81](https://img.shields.io/badge/MCP%20tools-81-a58bd8?style=flat-square)
 
 [Features](#features) ·
 [Getting started](#getting-started) ·
@@ -29,12 +29,12 @@ Timeline editing, color, audio and local speech-to-text, plus an MCP server that
 
 <table align="center">
   <tr>
-    <td align="center"><b>40</b><br><sub>video and audio effects</sub></td>
-    <td align="center"><b>18</b><br><sub>transitions</sub></td>
+    <td align="center"><b>91</b><br><sub>video and audio effects</sub></td>
+    <td align="center"><b>26</b><br><sub>transitions</sub></td>
     <td align="center"><b>13</b><br><sub>blend modes</sub></td>
-    <td align="center"><b>11+</b><br><sub>export formats</sub></td>
+    <td align="center"><b>18+</b><br><sub>export formats</sub></td>
     <td align="center"><b>8</b><br><sub>workspaces</sub></td>
-    <td align="center"><b>45</b><br><sub>MCP tools</sub></td>
+    <td align="center"><b>81</b><br><sub>MCP tools</sub></td>
   </tr>
 </table>
 
@@ -89,6 +89,21 @@ Timeline editing, color, audio and local speech-to-text, plus an MCP server that
 | Other | Animated GIF |
 
 </details>
+
+## New in 3.0.0
+
+| | |
+| --- | --- |
+| **Nothing gets lost** | Saves are written through a temporary file, so a crash or full disk mid-save leaves the old project intact, and the previous save is kept as `.oep.bak`. Auto-save keeps timestamped versions (every 3 minutes, 20 per project by default) that **File > Restore Version** brings back. While there are unsaved changes a recovery file is kept up to date, and after a crash or power cut the editor offers that work back at the next start. A damaged project file offers the newest version that still opens. Crashes leave a report and a minidump |
+| **Media management** | **Link Media** finds moved files by name and size, **Project Manager** collects a project and its media into one folder, plus **Remove Unused Media** and a **Project Report** |
+| **Editing** | Close All Gaps, Duplicate, Replace With Clip, Extend Edit to Playhead, Fade In/Out, layout presets (fill, fit, picture-in-picture, split screen), Auto Reframe to another aspect ratio, Match Frame, Select Clips at Playhead, Ease In and Ease Out keyframes, Save a Copy and Save Incremental |
+| **Video effects** | Unsharp Mask, Radial Blur, Tilt-Shift, Film Grain, Chromatic Aberration, Glitch, Scanlines, Halftone, Threshold, Solarize, Gradient Map, HSL Secondary, Change to Color, Letterbox, Shape Mask, Kaleidoscope, Camera Shake, Timecode |
+| **Transitions** | Wipe Up, Diagonal Wipe, Venetian Blinds, Checker Wipe, Push Up, Zoom In, Spin Away, Blur Dissolve |
+| **Audio effects** | 10-band Graphic Equalizer, Bass, Treble, Notch, Bandpass, Multiband Compressor, Stereo Expander, Center Channel Extractor, Channel Volume, Tremolo, Auto-Pan, Phaser, Distortion, Bit Crusher, Voice Changer, Pitch Shifter |
+| **Music** | Beat detection puts markers on the beats so cuts can snap to them |
+| **Export** | A render queue that keeps rendering while you edit, your own presets, chapters from markers, PNG and JPEG sequences, FLAC, Opus, 24-bit WAV and MKV, CMX3600 EDL, marker lists as CSV or YouTube chapters. A stopped or failed export never replaces the file from last time |
+
+Auto-save versions, recovery files and crash reports live in the app data folder (`%APPDATA%\Open Editor\Open Editor`), under `AutoSave`, `Sessions` and `Crashes`. The settings are in **Edit > Preferences > Auto Save**.
 
 ## Getting started
 
@@ -162,7 +177,7 @@ flowchart LR
     C[MCP client] -- HTTP and bearer token --> S
     L[Local command client] -- stdio --> B[oe-mcp.exe] -- HTTP --> S
     P[AI Assistant panel] --> T
-    S[MCP server<br>127.0.0.1] --> T[45 editor tools]
+    S[MCP server<br>127.0.0.1] --> T[81 editor tools]
     T --> U[Normal undo stack]
 ```
 
@@ -241,6 +256,8 @@ The engine has no widgets, so the app and the headless tests share it through th
 | --- | --- |
 | `oe_engine_test` | Frame accuracy, edit operations, compositing, mixing, every effect, transition and export format |
 | `oe_features_test` | GPU against CPU output, HDR, proxies, time remap, multicam, captions, automation, plugins, analysis |
+| `oe_v3_test` | Atomic saves, backups, versions, a real crash in a child process and its recovery, media management, the 3.0 edit operations, every 3.0 effect and transition measured, beat detection, EDL and chapters, the new export formats |
+| `OpenEditor --v3-test <outdir>` | The 3.0 features in the real window: auto-save, a second editor crashed on purpose and recovered, relinking, every new tool, the render queue |
 | `OpenEditor --ui-smoke <outdir> <media...>` | Real mouse events through every tool, undo, save/load, docking, playback |
 | `OpenEditor --text-test <outdir> <model> <media> <expected phrases...>` | Transcribe, then delete words with the real key |
 | `OpenEditor --ai-test <outdir>` | MCP over real HTTP, token and origin checks, stdio bridge, assistant loop against a local mock |

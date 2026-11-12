@@ -1,6 +1,7 @@
 // Offline render: runs the preview compositor and mixer at full quality and pipes to ffmpeg.
 #pragma once
 #include "../core/model.h"
+#include <QJsonObject>
 #include <QStringList>
 #include <QThread>
 #include <atomic>
@@ -17,6 +18,7 @@ struct ExportSettings {
     Frame first = 0, last = -1;
     bool sidecarSrt = false;
     double loudnessLufs = 0;       // below zero: normalise the mix to this integrated loudness
+    bool chapters = false;         // write sequence markers as chapters (MP4, MOV, MKV, WebM)
 };
 
 struct ExportFormat {
@@ -26,6 +28,19 @@ struct ExportFormat {
     QStringList audioArgs;
 };
 const QVector<ExportFormat> &exportFormats();
+bool isImageSequence(const QString &formatName);
+// Where frame n of an image sequence export goes: <name>_00001.png beside the chosen path.
+QString imageSequencePattern(const QString &path);
+
+// A named bundle of export settings the user saved from the Export page.
+namespace ExportPresets {
+QStringList names();
+bool load(const QString &name, ExportSettings *out);
+void save(const QString &name, const ExportSettings &s);
+void remove(const QString &name);
+QJsonObject toJson(const ExportSettings &s);
+ExportSettings fromJson(const QJsonObject &o, ExportSettings base = {});
+}
 
 class Exporter : public QThread {
     Q_OBJECT

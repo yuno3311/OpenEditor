@@ -12,9 +12,11 @@ struct Ctx {
     double scale = 1;    // image pixels per sequence pixel, so radii look the same at any res
     double seconds = 0;  // sequence time, drives animated effects
     double srcSec = -1;  // time in the clip's source media, for effects analysed against it
+    double fps = 30;     // sequence frame rate, for timecode
 };
 void apply(const Effect &e, QImage &img, const Ctx &c); // img: ARGB32_Premultiplied
 void boxBlur(QImage &img, int radius, int passes = 3);
+bool applyV3(const Effect &e, QImage &img, const Ctx &c); // the 3.0 effects; false if e is not one of them
 void parallelRows(int h, const std::function<void(int, int)> &fn);
 QImage bars(int w, int h);
 // Titles. The animation state comes from textAnimAt for the time within the clip.

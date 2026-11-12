@@ -14,6 +14,8 @@ double Param::at(Frame t) const
     if (a.i == Interp::Hold) return a.v;
     double u = double(t - a.t) / double(b.t - a.t);
     if (a.i == Interp::Ease) u = u * u * (3 - 2 * u);
+    else if (a.i == Interp::EaseIn) u = u * u;
+    else if (a.i == Interp::EaseOut) u = 1 - (1 - u) * (1 - u);
     return a.v + (b.v - a.v) * u;
 }
 int Param::keyIndexAt(Frame t) const
@@ -230,7 +232,7 @@ static Param paramF(const QJsonObject &o)
     p.animated = o["anim"].toBool();
     for (auto v : o["keys"].toArray()) {
         auto a = v.toArray();
-        Keyframe k; k.t = a[0].toDouble(); k.v = a[1].toDouble(); k.i = Interp(a[2].toInt());
+        Keyframe k; k.t = a[0].toDouble(); k.v = a[1].toDouble(); k.i = Interp(qBound(0, a[2].toInt(), int(Interp::EaseOut)));
         p.keys << k;
     }
     return p;

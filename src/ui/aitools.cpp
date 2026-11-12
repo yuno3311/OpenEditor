@@ -755,14 +755,18 @@ void AiTools::build()
     add("export_sequence", "Export the active sequence to a file. Runs in the background and returns a job id. Refuses to replace an existing file unless overwrite is true.",
         {P("path", "string", "Absolute output path", true), P("format", "string", "Format name such as H.264, default H.264"), P("width", "integer", "Default sequence width"), P("height", "integer", "Default sequence height"),
          P("crf", "integer", "Quality, default 20"), P("first_frame", "integer", "Range start"), P("last_frame", "integer", "Range end, exclusive"), P("overwrite", "boolean", "Replace an existing file"),
-         P("loudness_lufs", "number", "Normalise the mix to this integrated loudness, for example -14. Omit to leave it")},
+         P("loudness_lufs", "number", "Normalise the mix to this integrated loudness, for example -14. Omit to leave it"),
+         P("chapters", "boolean", "Write the sequence markers into the file as chapters (MP4, MOV, MKV, WebM)"), P("preset", "string", "Start from a saved export preset; other arguments override it")},
         [this](const QJsonObject &a) {
             Sequence &q = seq();
             QString path = a["path"].toString();
             if (!QFileInfo(path).isAbsolute()) fail("path must be absolute.");
             if (QFileInfo::exists(path) && !a["overwrite"].toBool()) fail("That file exists. Set overwrite to true to replace it.");
             ExportSettings c;
-            c.path = path; c.format = a["format"].toString("H.264"); c.width = a["width"].toInt(q.w); c.height = a["height"].toInt(q.h); c.crf = a["crf"].toInt(20);
+            c.width = q.w; c.height = q.h;
+            if (a.contains("preset") && !ExportPresets::load(a["preset"].toString(), &c)) fail("No such export preset: " + a["preset"].toString());
+            c.path = path; c.format = a["format"].toString(c.format); c.width = a["width"].toInt(c.width); c.height = a["height"].toInt(c.height); c.crf = a["crf"].toInt(c.crf);
+            c.chapters = a["chapters"].toBool(c.chapters);
             c.first = Frame(a["first_frame"].toDouble(0)); c.last = Frame(a["last_frame"].toDouble(-1));
             if (a.contains("loudness_lufs")) {
                 c.loudnessLufs = a["loudness_lufs"].toDouble();
@@ -800,7 +804,8 @@ void AiTools::build()
     add("save_project", "Save the project. Give path the first time.", {P("path", "string", "Absolute .oep path")}, [](const QJsonObject &a) {
         QString p = a["path"].toString(PRJ->filePath);
         if (p.isEmpty()) fail("This project has no file yet. Give path.");
-        if (!PRJ->save(p)) fail("Could not write the file.");
+        if (!PRJ->save(p)) fail("Could not write the file: " + PRJ->lastError);
         return textResult("Saved.");
     });
+    buildV3();
 }

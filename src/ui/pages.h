@@ -53,6 +53,20 @@ private:
     void fromPreset();
     void updateSummary();
     void start();
+    void reloadUserPresets(const QString &select = {});
+    bool gather(ExportSettings &c);          // the page's settings; false with a message if they cannot export
+    void applySettings(const ExportSettings &c);
+    void addToQueue();
+    void refreshQueue();
+    QCheckBox *chapters;
+    QListWidget *queueList;
+    QPushButton *queueBtn, *startQueueBtn, *clearQueueBtn, *delPresetBtn;
+public:
+    // For the in-app tests
+    ExportSettings currentSettings() { ExportSettings c; gather(c); return c; }
+    void selectPreset(const QString &name) { preset->setCurrentText(name); }
+    QStringList presetNames() const { QStringList l; for (int i = 0; i < preset->count(); ++i) l << preset->itemText(i); return l; }
+private:
     QLineEdit *fileName, *folder;
     QComboBox *format, *preset, *speed, *range, *loud;
     QSpinBox *wEd, *hEd, *crf, *kbps, *aKbps;

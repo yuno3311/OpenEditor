@@ -1,3 +1,0 @@
-C:\Qt\Tools\CMake_64\bin\cmake.exe -E rm -f CMakeFiles\appOpen_Editor.dir/objects.a
-C:\Qt\Tools\mingw1310_64\bin\ar.exe qc CMakeFiles\appOpen_Editor.dir/objects.a @CMakeFiles\appOpen_Editor.dir\objects1.rsp
-C:\Qt\Tools\mingw1310_64\bin\g++.exe -O3 -DNDEBUG -mwindows -Wl,--whole-archive CMakeFiles\appOpen_Editor.dir/objects.a -Wl,--no-whole-archive -o OpenEditor.exe -Wl,--out-implib,libOpenEditor.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\appOpen_Editor.dir\linkLibs.rsp

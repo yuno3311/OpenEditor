@@ -32,6 +32,12 @@ public:
     MulticamPanel *multicam;
     AssistantPanel *assistant;
     QWidget *pageHost() const { return stack; }
+    // 3.0
+    bool startupRecovery();                 // offers unsaved work from a crashed session, or reopens the last project
+    void openFile(const QString &path);
+    void afterProjectOpened();
+    static QString nextIncrement(const QString &path);
+    ExportPage *exportPageWidget() const { return exportPage; }
 protected:
     void closeEvent(QCloseEvent *e) override;
 private:
@@ -57,6 +63,22 @@ private:
     void loudnessDialog();
     void watchJob(const QJsonObject &startResult, const QString &label);
     QList<int> selectedClipIds() const;
+    void rebuildRecentMenu();
+    void saveCopy();
+    void saveIncremental();
+    void revertToSaved();
+    void linkMediaDialog();
+    void projectManagerDialog();
+    void projectReportDialog();
+    void exportInterchange(const QString &kind);
+    void autoReframeDialog();
+    void fadeDialog();
+    void beatDialog();
+    void replaceWithSource();
+    void matchFrame();
+    void selectAtPlayhead();
+    void addV3ClipMenu(QMenu *c);
+    QMenu *recentMenu = nullptr;
     QAction *proxyAction = nullptr;
     void nextMarker(bool fwd);
     void loadShortcuts();

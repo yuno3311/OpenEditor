@@ -199,10 +199,13 @@ int main(int argc, char **argv)
         pump(5);
         QCoreApplication::processEvents();
         MediaItem o;
-        bool pr = QFileInfo::exists(c.path) && CACHE->probe(c.path, o);
+        // An image sequence writes numbered files beside the chosen name.
+        const QString made = isImageSequence(fm.name) ? QString::asprintf(qPrintable(imageSequencePattern(c.path)), 1) : c.path;
+        bool pr = QFileInfo::exists(made) && CACHE->probe(made, o);
         printf("export %-24s %s %s\n", qPrintable(fm.name), pr ? "ok" : "FAILED", qPrintable(err));
         if (!pr) ++fails;
-        if (pr && fm.video && fm.name != "Animated GIF") CHECK(o.w == 320 && std::fabs(o.fps - 30) < .1);
+        if (pr && fm.video && fm.name != "Animated GIF" && !isImageSequence(fm.name)) CHECK(o.w == 320 && std::fabs(o.fps - 30) < .1);
+        if (pr && isImageSequence(fm.name)) CHECK(o.w == 320 && o.h == 180);
     }
     printf(fails ? "\n%d FAILURES\n" : "\nALL PASSED\n", fails);
     fflush(stdout);

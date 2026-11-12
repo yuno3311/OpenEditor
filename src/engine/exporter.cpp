@@ -4,6 +4,10 @@
 #include "audiomix.h"
 #include "analysis.h"
 #include "compositor.h"
+#include "interchange.h"
+#include "../core/vault.h"
+#include <QJsonDocument>
+#include <QSettings>
 #include "pipeproc.h"
 #include <QDir>
 #include <QElapsedTimer>
@@ -34,7 +38,13 @@ const QVector<ExportFormat> &exportFormats()
         {"VP9 (WebM)", "webm", true, true, {"-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", "-row-mt", "1"}, {"-c:a", "libopus"}},
         {"AV1", "mp4", true, true, {"-c:v", "libsvtav1", "-pix_fmt", "yuv420p"}, {"-c:a", "aac"}},
         {"Animated GIF", "gif", true, false, {"-vf", "fps=15,split[a][b];[a]palettegen[p];[b][p]paletteuse"}, {}},
+        {"H.264 (Matroska)", "mkv", true, true, {"-c:v", "libx264", "-pix_fmt", "yuv420p"}, {"-c:a", "aac"}},
+        {"PNG Sequence", "png", true, false, {"-c:v", "png", "-pix_fmt", "rgba"}, {}},
+        {"JPEG Sequence", "jpg", true, false, {"-c:v", "mjpeg", "-pix_fmt", "yuvj420p", "-q:v", "2"}, {}},
         {"WAV (Audio Only)", "wav", false, true, {}, {"-c:a", "pcm_s16le"}},
+        {"WAV 24-bit (Audio Only)", "wav", false, true, {}, {"-c:a", "pcm_s24le"}},
+        {"FLAC (Audio Only)", "flac", false, true, {}, {"-c:a", "flac"}},
+        {"Opus (Audio Only)", "opus", false, true, {}, {"-c:a", "libopus"}},
         {"MP3 (Audio Only)", "mp3", false, true, {}, {"-c:a", "libmp3lame"}},
         {"AAC (Audio Only)", "m4a", false, true, {}, {"-c:a", "aac"}}};
     for (auto &hw : std::initializer_list<std::pair<const char *, const char *>>{{"H.264 (NVIDIA NVENC)", "h264_nvenc"}, {"HEVC (NVIDIA NVENC)", "hevc_nvenc"}, {"H.264 (Intel Quick Sync)", "h264_qsv"}, {"H.264 (AMD AMF)", "h264_amf"}})
@@ -42,6 +52,53 @@ const QVector<ExportFormat> &exportFormats()
     return l;
     }();
     return v;
+}
+
+bool isImageSequence(const QString &n) { return n == "PNG Sequence" || n == "JPEG Sequence"; }
+QString imageSequencePattern(const QString &path)
+{
+    const QFileInfo fi(path);
+    return fi.dir().filePath(fi.completeBaseName() + "_%05d." + fi.suffix());
+}
+
+namespace ExportPresets {
+QJsonObject toJson(const ExportSettings &s)
+{
+    return {{"format", s.format}, {"width", s.width}, {"height", s.height}, {"crf", s.crf}, {"kbps", s.kbps}, {"speed", s.preset}, {"audioKbps", s.audioKbps},
+            {"video", s.video}, {"audio", s.audio}, {"srt", s.sidecarSrt}, {"lufs", s.loudnessLufs}, {"chapters", s.chapters}};
+}
+ExportSettings fromJson(const QJsonObject &o, ExportSettings s)
+{
+    s.format = o["format"].toString(s.format);
+    s.width = o["width"].toInt(s.width); s.height = o["height"].toInt(s.height);
+    s.crf = o["crf"].toInt(s.crf); s.kbps = o["kbps"].toInt(s.kbps);
+    s.preset = o["speed"].toString(s.preset); s.audioKbps = o["audioKbps"].toInt(s.audioKbps);
+    s.video = o["video"].toBool(s.video); s.audio = o["audio"].toBool(s.audio);
+    s.sidecarSrt = o["srt"].toBool(s.sidecarSrt); s.loudnessLufs = o["lufs"].toDouble(s.loudnessLufs);
+    s.chapters = o["chapters"].toBool(s.chapters);
+    return s;
+}
+static QJsonObject all() { return QJsonDocument::fromJson(QSettings().value("export/presets").toByteArray()).object(); }
+QStringList names() { return all().keys(); }
+bool load(const QString &name, ExportSettings *out)
+{
+    const QJsonObject a = all();
+    if (!a.contains(name)) return false;
+    if (out) *out = fromJson(a[name].toObject(), *out);
+    return true;
+}
+void save(const QString &name, const ExportSettings &s)
+{
+    QJsonObject a = all();
+    a[name] = toJson(s);
+    QSettings().setValue("export/presets", QJsonDocument(a).toJson(QJsonDocument::Compact));
+}
+void remove(const QString &name)
+{
+    QJsonObject a = all();
+    a.remove(name);
+    QSettings().setValue("export/presets", QJsonDocument(a).toJson(QJsonDocument::Compact));
+}
 }
 
 Exporter::Exporter(const ProjectState &s, int id, const ExportSettings &c, QObject *p) : QThread(p), st(s), seqId(id), cfg(c) {}
@@ -92,6 +149,19 @@ void Exporter::run()
     const bool withV = fmt->video && cfg.video, withA = fmt->audio && cfg.audio;
     if (!withV && !withA) { emit failed("Enable video or audio output."); return; }
 
+    // Fail before rendering anything if the output cannot be written.
+    const QFileInfo outInfo(cfg.path);
+    if (!outInfo.dir().exists() && !QDir().mkpath(outInfo.absolutePath())) { emit failed(tr("The output folder does not exist and could not be created.")); return; }
+    if (const qint64 space = Vault::freeBytes(cfg.path); space >= 0 && space < (64 << 20)) {
+        emit failed(tr("The disk is almost full: only %1 MB left where the export would go.").arg(space >> 20));
+        return;
+    }
+    const bool imageSeq = isImageSequence(fmt->name);
+    // Rendered under a temporary name and renamed at the end, so a stopped or failed export never
+    // leaves a broken file where a finished one is expected, and never destroys the old one.
+    const QString outPath = imageSeq ? imageSequencePattern(cfg.path)
+                                     : outInfo.dir().filePath(outInfo.completeBaseName() + ".part." + outInfo.suffix());
+
     QTemporaryDir tmp;
     QString wav = tmp.filePath("mix.f32");
     if (withA) {
@@ -122,6 +192,17 @@ void Exporter::run()
         args << "-f" << "rawvideo" << "-pix_fmt" << "bgra" << "-s" << QString("%1x%2").arg(q->w & ~1).arg(q->h & ~1)
              << "-r" << QString("%1/%2").arg(q->fpsNum).arg(q->fpsDen) << "-i" << "pipe:0";
     if (withA) args << "-f" << "f32le" << "-ar" << QString::number(MediaCache::kRate) << "-ac" << "2" << "-i" << wav;
+    static const QStringList chapterExts{"mp4", "mov", "mkv", "webm", "m4a"};
+    if (cfg.chapters && chapterExts.contains(fmt->ext)) {
+        const QString meta = Interchange::ffmetadataChapters(*q, first, last);
+        QFile mf(tmp.filePath("chapters.txt"));
+        if (!meta.isEmpty() && mf.open(QIODevice::WriteOnly)) {
+            mf.write(meta.toUtf8());
+            mf.close();
+            const int idx = int(withV) + int(withA);
+            args << "-f" << "ffmetadata" << "-i" << mf.fileName() << "-map_chapters" << QString::number(idx);
+        }
+    }
     if (withV) {
         args << fmt->videoArgs;
         const bool scaled = (w != (q->w & ~1) || h != (q->h & ~1));
@@ -143,8 +224,9 @@ void Exporter::run()
         if (fmt->audioArgs.contains("aac") || fmt->audioArgs.contains("libmp3lame") || fmt->audioArgs.contains("libopus"))
             args << "-b:a" << QString("%1k").arg(cfg.audioKbps);
     }
-    QFile::remove(cfg.path);
-    args << cfg.path;
+    if (imageSeq) args << "-start_number" << "1";
+    else QFile::remove(outPath);
+    args << outPath;
 
     PipeProc enc;
     if (!enc.start(CACHE->ffmpeg(), args, withV)) { emit failed("Could not start ffmpeg."); return; }
@@ -168,15 +250,29 @@ void Exporter::run()
     enc.closeStdin();
     if (stop) {
         enc.kill();
-        QFile::remove(cfg.path);
+        enc.wait();
+        // Windows keeps the file locked for a moment after the encoder dies.
+        for (int i = 0; !imageSeq && QFileInfo::exists(outPath) && !QFile::remove(outPath) && i < 40; ++i) QThread::msleep(50);
         emit failed(tr("Export stopped."));
         return;
     }
     int code = enc.wait();
-    if (code != 0 || !QFileInfo::exists(cfg.path)) { emit failed(tr("ffmpeg exited with code %1. The chosen codec may be unavailable in this ffmpeg build.").arg(code)); return; }
+    QString result = cfg.path;
+    if (imageSeq) {
+        result = QString::asprintf(qPrintable(outPath), 1);
+        if (code != 0 || !QFileInfo::exists(result)) { emit failed(tr("ffmpeg exited with code %1 while writing the image sequence.").arg(code)); return; }
+    } else {
+        if (code != 0 || !QFileInfo::exists(outPath) || QFileInfo(outPath).size() == 0) {
+            QFile::remove(outPath);
+            emit failed(tr("ffmpeg exited with code %1. The chosen codec may be unavailable in this ffmpeg build.").arg(code));
+            return;
+        }
+        QFile::remove(cfg.path);
+        if (!QFile::rename(outPath, cfg.path)) { emit failed(tr("The export finished but %1 could not be replaced. The new file is %2.").arg(outInfo.fileName(), QFileInfo(outPath).fileName())); return; }
+    }
     if (cfg.sidecarSrt && !q->captions.isEmpty()) {
         QFile srt(QFileInfo(cfg.path).dir().filePath(QFileInfo(cfg.path).completeBaseName() + ".srt"));
         if (srt.open(QIODevice::WriteOnly)) srt.write(Analysis::writeSrt(q->captions, q->fps()).toUtf8());
     }
-    emit finishedOk(cfg.path);
+    emit finishedOk(result);
 }

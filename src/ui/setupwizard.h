@@ -10,6 +10,9 @@ namespace Setup {
 struct Status {
     QString ffmpeg, ffprobe, ffmpegNote;
     bool ffmpegOk = false, ffprobeOk = false, whisper = false, model = false, bridge = false, encoders = false;
+    bool storage = false;        // the folder for auto-save versions and crash recovery can be written
+    QString storageNote;
+    int recoverable = 0;         // sessions that crashed with unsaved work waiting
     bool requiredOk() const { return ffmpegOk && ffprobeOk; }
 };
 Status check();

@@ -470,7 +470,7 @@ static bool applyV2(const Effect &e, QImage &img, const Ctx &c)
 void apply(const Effect &e, QImage &img, const Ctx &c)
 {
     img.detach(); // scanLine() below runs on worker threads and must not detach concurrently
-    if (applyV2(e, img, c)) return;
+    if (applyV2(e, img, c) || applyV3(e, img, c)) return;
     const QString &t = e.type;
     auto V = [&](const char *id, double d = 0) { return float(e.val(id, c.kt, d)); };
     if (t.startsWith(QLatin1String("plugin."))) { PluginHost::video(e, img, c.kt, c.seconds); return; }

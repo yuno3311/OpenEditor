@@ -19,9 +19,14 @@
 #include <QInputDialog>
 #include <QJsonDocument>
 #include <QKeySequenceEdit>
+#include <QJsonArray>
+#include <QLocale>
+#include <QTime>
+#include <algorithm>
 #include <QMenuBar>
 #include <QMessageBox>
 #include "setupwizard.h"
+#include "safety.h"
 #include "../core/fonts.h"
 #include <QSettings>
 #include <QSpinBox>
@@ -140,19 +145,10 @@ MainWindow::MainWindow()
     if (!CACHE->available())
         statusBar()->showMessage(tr("ffmpeg not found: install it or place ffmpeg.exe and ffprobe.exe next to the application."));
 
-    auto *auto_ = new QTimer(this);
-    auto_->setInterval(5 * 60 * 1000);
-    connect(auto_, &QTimer::timeout, this, [] {
-        if (!PRJ->loaded || PRJ->undo.isClean()) return;
-        QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/AutoSave";
-        QDir().mkpath(dir);
-        QString keep = PRJ->filePath;
-        bool clean = PRJ->undo.isClean();
-        QFile f(dir + "/" + PRJ->displayName() + ".autosave.oep");
-        if (f.open(QIODevice::WriteOnly)) f.write(QJsonDocument(stateToJson(PRJ->s)).toJson(QJsonDocument::Compact));
-        Q_UNUSED(keep); Q_UNUSED(clean);
-    });
-    auto_->start();
+    // Auto-save versions, the crash recovery file and crash reports.
+    connect(SAFETY, &SafetyNet::autosaved, this, [this] { statusBar()->showMessage(tr("Auto-saved at %1").arg(QLocale().toString(QTime::currentTime(), QLocale::ShortFormat)), 5000); });
+    connect(SAFETY, &SafetyNet::problem, this, [this](const QString &t) { statusBar()->showMessage(t, 15000); });
+    SAFETY->start();
 
     AITOOLS->setProxiesEnabled = [this](bool on) { setProxies(on); };
     if (QSettings().value("useProxies", false).toBool()) setProxies(true);
@@ -250,9 +246,15 @@ void MainWindow::buildMenus()
     act(f, tr("New Sequence..."), "Ctrl+N", [this] { project->newSequenceDialog(); showPage(PageEdit); });
     act(f, tr("New Bin"), "Ctrl+B", [this] { project->newBin(); });
     act(f, tr("Open Project..."), "Ctrl+O", [this] { openProject(); });
+    recentMenu = f->addMenu(tr("Open Recent"));
+    connect(recentMenu, &QMenu::aboutToShow, this, &MainWindow::rebuildRecentMenu);
     f->addSeparator();
     act(f, tr("Save"), "Ctrl+S", [this] { saveProject(false); });
     act(f, tr("Save As..."), "Ctrl+Shift+S", [this] { saveProject(true); });
+    act(f, tr("Save a Copy..."), "Ctrl+Alt+S", [this] { saveCopy(); });
+    act(f, tr("Save Incremental"), "Ctrl+Alt+Shift+S", [this] { saveIncremental(); });
+    act(f, tr("Revert to Saved"), "", [this] { revertToSaved(); });
+    act(f, tr("Restore Version..."), "", [this] { if (PRJ->loaded && SAFETY->restoreVersionDialog(this)) afterProjectOpened(); });
     f->addSeparator();
     act(f, tr("Import..."), "Ctrl+I", [this] { project->importDialog(); });
     act(f, tr("Import Page"), "Ctrl+Shift+I", [this] { showPage(PageImport); });
@@ -261,8 +263,17 @@ void MainWindow::buildMenus()
         if (!files.isEmpty()) project->importFiles(files);
     });
     f->addSeparator();
+    act(f, tr("Link Media..."), "", [this] { linkMediaDialog(); });
+    act(f, tr("Project Manager..."), "", [this] { projectManagerDialog(); });
+    act(f, tr("Remove Unused Media"), "", [this] { runTool("remove_unused_media", {}); });
+    act(f, tr("Project Report..."), "", [this] { projectReportDialog(); });
+    f->addSeparator();
     act(f, tr("Export Media..."), "Ctrl+M", [this] { showPage(PageExport); });
     act(f, tr("Export Frame..."), "Ctrl+Shift+E", [this] { activeMonitor()->exportFrame(); });
+    QMenu *ex = f->addMenu(tr("Export Other"));
+    act(ex, tr("Edit Decision List (EDL)..."), "", [this] { exportInterchange("edl"); });
+    act(ex, tr("Markers as CSV..."), "", [this] { exportInterchange("csv"); });
+    act(ex, tr("Markers as YouTube Chapters..."), "", [this] { exportInterchange("youtube"); });
     f->addSeparator();
     act(f, tr("Exit"), "Ctrl+Q", [this] { close(); });
 
@@ -290,6 +301,7 @@ void MainWindow::buildMenus()
     e->addSeparator();
     act(e, tr("Select All"), "Ctrl+A", [tl] { tl->selectAll(); });
     act(e, tr("Deselect All"), "Ctrl+Shift+A", [] { PRJ->setSelection({}); });
+    act(e, tr("Select Clips at Playhead"), "D", [this] { selectAtPlayhead(); });
     e->addSeparator();
     act(e, tr("Keyboard Shortcuts..."), "Ctrl+Alt+K", [this] { shortcutsDialog(); });
     act(e, tr("Preferences..."), "", [this] { prefsDialog(); });
@@ -305,6 +317,7 @@ void MainWindow::buildMenus()
     act(c, tr("Enable"), "Shift+E", [tl] { tl->toggleEnable(); });
     act(c, tr("Link / Unlink"), "Ctrl+L", [tl] { tl->toggleLink(); });
     act(c, tr("Nest..."), "", [tl] { tl->nestSelection(); });
+    addV3ClipMenu(c);
 
     QMenu *s = menuBar()->addMenu(tr("&Sequence"));
     act(s, tr("Add Edit"), "Ctrl+K", [tl] { tl->razorAtPlayhead(false); });
@@ -318,6 +331,14 @@ void MainWindow::buildMenus()
     s->addSeparator();
     act(s, tr("Lift"), ";", [tl] { tl->liftRange(); });
     act(s, tr("Extract"), "'", [tl] { tl->extractRange(); });
+    act(s, tr("Close All Gaps"), "", [this] { runTool("close_gaps", {}); });
+    act(s, tr("Extend Selected Edit to Playhead"), "E", [this] {
+        QJsonArray ids;
+        for (int id : selectedClipIds()) ids.append(id);
+        if (ids.isEmpty() || !PRJ->active()) { statusBar()->showMessage(tr("Select a clip first."), 5000); return; }
+        runTool("extend_to_frame", {{"clip_ids", ids}, {"frame", double(PRJ->active()->playhead)}});
+    });
+    act(s, tr("Auto Reframe Sequence..."), "", [this] { autoReframeDialog(); });
     s->addSeparator();
     auto *sn = act(s, tr("Snap in Timeline"), "S", [] { PRJ->snapping = !PRJ->snapping; });
     sn->setCheckable(true); sn->setChecked(true);
@@ -338,6 +359,14 @@ void MainWindow::buildMenus()
     act(m, tr("Add Marker"), "M", [tl] { tl->addMarker(); });
     act(m, tr("Go to Next Marker"), "Shift+M", [this] { nextMarker(true); });
     act(m, tr("Go to Previous Marker"), "Ctrl+Shift+M", [this] { nextMarker(false); });
+    m->addSeparator();
+    act(m, tr("Add Beat Markers..."), "", [this] { beatDialog(); });
+    act(m, tr("Clear Beat Markers"), "", [] {
+        if (auto q = PRJ->active()) PRJ->edit(tr("Clear Beat Markers"), [](ProjectState &st) {
+            auto &mk = st.seqById(st.activeSeq)->markers;
+            mk.erase(std::remove_if(mk.begin(), mk.end(), [](const Marker &k) { return k.name == QLatin1String("Beat"); }), mk.end());
+        });
+    });
 
     QMenu *g = menuBar()->addMenu(tr("&Graphics and Titles"));
     act(g, tr("New Text Layer"), "Ctrl+T", [tl] { tl->addTextClip(); });
@@ -462,47 +491,6 @@ void MainWindow::shortcutsDialog()
     if (!clashes.isEmpty()) QMessageBox::warning(this, tr("Keyboard Shortcuts"), tr("These shortcuts are assigned twice:\n%1").arg(clashes.join('\n')));
 }
 
-void MainWindow::prefsDialog()
-{
-    QDialog d(this);
-    d.setWindowTitle(tr("Preferences"));
-    d.setMinimumWidth(480);
-    auto *f = new QFormLayout(&d);
-    auto *gpuOn = new QCheckBox(tr("Use the GPU for effects"), &d);
-    gpuOn->setChecked(GpuFx::enabled);
-    auto *hwOn = new QCheckBox(tr("Use hardware video decoding"), &d);
-    hwOn->setChecked(VideoReader::hwDecode);
-    f->addRow(gpuOn);
-    f->addRow(hwOn);
-    if (!GpuFx::rendererName().isEmpty()) f->addRow(tr("Renderer:"), new QLabel(GpuFx::rendererName(), &d));
-    auto *mem = new QSpinBox(&d);
-    mem->setRange(1, 64); mem->setSuffix(" GB");
-    mem->setValue(QSettings().value("cacheGB", 3).toInt());
-    f->addRow(tr("Frame cache memory:"), mem);
-    auto *ff = new QLabel(CACHE->ffmpeg().isEmpty() ? tr("Not found") : CACHE->ffmpeg(), &d);
-    ff->setWordWrap(true);
-    ff->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    f->addRow(tr("ffmpeg:"), ff);
-    auto *cd = new QLabel(CACHE->cacheDir(), &d);
-    cd->setWordWrap(true);
-    cd->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    f->addRow(tr("Media cache:"), cd);
-    auto *cl = new QPushButton(tr("Delete Unused Media Cache Files"), &d);
-    connect(cl, &QPushButton::clicked, &d, [cl] { CACHE->clearDiskCache(); cl->setEnabled(false); });
-    f->addRow(QString(), cl);
-    auto *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
-    f->addRow(bb);
-    connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept);
-    connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
-    if (d.exec() != QDialog::Accepted) return;
-    QSettings().setValue("cacheGB", mem->value());
-    GpuFx::enabled = gpuOn->isChecked();
-    VideoReader::hwDecode = hwOn->isChecked();
-    QSettings().setValue("gpu", gpuOn->isChecked());
-    QSettings().setValue("hwDecode", hwOn->isChecked());
-    VideoReader::setCacheBudget(qint64(mem->value()) << 30);
-}
-
 void MainWindow::nextMarker(bool fwd)
 {
     auto q = PRJ->active();
@@ -534,8 +522,12 @@ bool MainWindow::saveProject(bool as)
         path = QFileDialog::getSaveFileName(this, tr("Save Project"), PRJ->displayName() + ".oep", tr("Open Editor Project (*.oep)"));
         if (path.isEmpty()) return false;
     }
-    if (!PRJ->save(path)) { QMessageBox::warning(this, tr("Save"), tr("Could not write %1.").arg(path)); return false; }
+    if (!PRJ->save(path)) {
+        QMessageBox::warning(this, tr("Save"), tr("Could not write %1.\n%2\n\nYour changes are still open, and the file on disk is unchanged.").arg(QDir::toNativeSeparators(path), PRJ->lastError));
+        return false;
+    }
     addRecent(path);
+    SAFETY->projectSwitched();
     updateTitle();
     return true;
 }
@@ -553,12 +545,31 @@ void MainWindow::openProject(const QString &given)
     if (!confirmClose()) return;
     QString path = given.isEmpty() ? QFileDialog::getOpenFileName(this, tr("Open Project"), {}, tr("Open Editor Project (*.oep)")) : given;
     if (path.isEmpty()) return;
-    if (!PRJ->load(path)) { QMessageBox::warning(this, tr("Open Project"), tr("This is not a valid Open Editor project.")); return; }
+    if (Vault::Session::openElsewhere(path, SAFETY->session.id())
+        && QMessageBox::warning(this, tr("Open Project"), tr("%1 is already open in another Open Editor window. Saving from both will overwrite each other's changes.\n\nOpen it here anyway?").arg(QFileInfo(path).fileName()),
+                                QMessageBox::Open | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Open) return;
+    if (!PRJ->load(path)) {
+        // A damaged or missing file: offer the newest backup or auto-save that still opens.
+        if (!SAFETY->offerFallback(this, path, PRJ->lastLoad)) return;
+        addRecent(path);
+        afterProjectOpened();
+        statusBar()->showMessage(tr("Opened an earlier version. Save to replace the damaged project file."), 10000);
+        return;
+    }
     addRecent(path);
+    SAFETY->projectSwitched();
     for (auto &m : PRJ->s.media) if (m.hasAudio && !m.path.isEmpty() && !m.offline) CACHE->ensureAudio(m.path);
     int off = 0;
     for (auto &m : PRJ->s.media) off += m.offline;
-    if (off) QMessageBox::warning(this, tr("Open Project"), tr("%n media file(s) could not be found and are offline.", "", off));
+    if (off) {
+        showPage(PageEdit);
+        updateTitle();
+        QMessageBox box(QMessageBox::Warning, tr("Open Project"), tr("%n media file(s) could not be found and are offline.", "", off), QMessageBox::NoButton, this);
+        auto *link = box.addButton(tr("Link Media..."), QMessageBox::AcceptRole);
+        box.addButton(tr("Later"), QMessageBox::RejectRole);
+        box.exec();
+        if (box.clickedButton() == link) linkMediaDialog();
+    }
     const QStringList fonts = Fonts::missingFamilies(PRJ->s);
     if (!fonts.isEmpty())
         QMessageBox::warning(this, tr("Open Project"), tr("Titles in this project use fonts that are not on this computer:\n%1\n\nThey show in a substitute font until you import the font files (File > Import Font).").arg(fonts.join(", ")));
@@ -575,6 +586,7 @@ void MainWindow::newProject()
     PRJ->loaded = true;
     QString path = QFileDialog::getSaveFileName(this, tr("Project Location"), QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(name + ".oep"), tr("Open Editor Project (*.oep)"));
     if (!path.isEmpty()) { PRJ->save(path); addRecent(path); }
+    SAFETY->projectSwitched();
     updateTitle();
     showPage(PageImport);
 }
@@ -583,5 +595,6 @@ void MainWindow::closeEvent(QCloseEvent *e)
 {
     if (!confirmClose()) { e->ignore(); return; }
     QSettings().setValue("layout2/" + workspace, panels->saveLayout());
+    SAFETY->shutdown(); // a clean exit: nothing to recover next time
     e->accept();
 }

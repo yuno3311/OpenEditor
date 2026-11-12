@@ -54,7 +54,7 @@ void KeyLane::paintEvent(QPaintEvent *)
                     bool now = k.t == c->kt(q->playhead);
                     if (k.i == Interp::Hold) { p.fillRect(x - 3, y - 4, 6, 8, now ? accent : QColor("#ddd")); continue; }
                     d << QPoint(x, y - 5) << QPoint(x + 5, y) << QPoint(x, y + 5) << QPoint(x - 5, y);
-                    p.setBrush(now ? accent : k.i == Interp::Ease ? QColor("#e8c040") : QColor("#ddd"));
+                    p.setBrush(now ? accent : (k.i == Interp::Ease || k.i == Interp::EaseIn || k.i == Interp::EaseOut) ? QColor("#e8c040") : QColor("#ddd"));
                     p.setPen(Qt::black);
                     p.drawPolygon(d);
                 }
@@ -84,6 +84,8 @@ void KeyLane::mousePressEvent(QMouseEvent *e)
         QMenu m;
         m.addAction(tr("Linear"), [=] { set(Interp::Linear); });
         m.addAction(tr("Ease (Bezier)"), [=] { set(Interp::Ease); });
+        m.addAction(tr("Ease In"), [=] { set(Interp::EaseIn); });
+        m.addAction(tr("Ease Out"), [=] { set(Interp::EaseOut); });
         m.addAction(tr("Hold"), [=] { set(Interp::Hold); });
         m.addSeparator();
         m.addAction(tr("Delete"), [=] {

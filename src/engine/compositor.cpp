@@ -103,6 +103,7 @@ void Compositor::drawClip(QPainter &p, QImage &canvas, const ProjectState &st, c
     ctx.scale = scale;
     ctx.seconds = double(f) / q.fps();
     ctx.srcSec = c.sourceTime(f, q.fps());
+    ctx.fps = q.fps();
     runEffects(c, img, ctx);
     const Effect *mo = c.effect("motion"), *op = c.effect("opacity");
     double opacity = op && op->enabled ? op->val("opacity", kt, 100) / 100.0 : 1.0;
@@ -253,6 +254,45 @@ QImage Compositor::transitionFrame(const ProjectState &st, const Sequence &q, co
         p.save(); p.translate(w / 2.0, h / 2.0); p.scale(z, z); p.translate(-w / 2.0, -h / 2.0); p.setOpacity(1 - u); p.drawImage(0, 0, a); p.restore();
         double z2 = .6 + .4 * u;
         p.save(); p.translate(w / 2.0, h / 2.0); p.scale(z2, z2); p.translate(-w / 2.0, -h / 2.0); p.setOpacity(u); p.drawImage(0, 0, b); p.restore();
+    } else if (ty == "wipeU") {
+        QPainterPath path; path.addRect(0, h * (1 - u), w, h * u); clipped(path);
+    } else if (ty == "wipediag") {
+        // A diagonal edge sweeping from the top-left corner to the bottom-right one.
+        const double d = (w + h) * u;
+        QPainterPath path; path.moveTo(0, 0); path.lineTo(d, 0); path.lineTo(0, d); path.closeSubpath(); clipped(path);
+    } else if (ty == "pushU") {
+        p.drawImage(QPointF(0, -h * u), a);
+        p.drawImage(QPointF(0, h - h * u), b);
+    } else if (ty == "blinds") {
+        const int n = 12;
+        QPainterPath path;
+        for (int i = 0; i < n; ++i) path.addRect(0, double(h) * i / n, w, double(h) / n * u);
+        clipped(path);
+    } else if (ty == "checker") {
+        // Alternate squares open first, the rest in the second half.
+        const int nx = 8, ny = qMax(1, int(std::lround(8.0 * h / w)));
+        const double cw = double(w) / nx, ch = double(h) / ny;
+        QPainterPath path;
+        for (int j = 0; j < ny; ++j)
+            for (int i = 0; i < nx; ++i) {
+                const double k = qBound(0.0, ((i + j) % 2 ? u * 2 - 1 : u * 2), 1.0);
+                if (k > 0) path.addRect(i * cw, j * ch, cw * k, ch);
+            }
+        clipped(path);
+    } else if (ty == "zoomin") {
+        p.drawImage(0, 0, a);
+        const double z = u * u * (3 - 2 * u);
+        p.save(); p.translate(w / 2.0, h / 2.0); p.scale(z, z); p.translate(-w / 2.0, -h / 2.0); p.drawImage(0, 0, b); p.restore();
+    } else if (ty == "spin") {
+        p.drawImage(0, 0, b);
+        const double z = 1 - u;
+        p.save(); p.translate(w / 2.0, h / 2.0); p.rotate(360 * u); p.scale(z, z); p.translate(-w / 2.0, -h / 2.0); p.setOpacity(qMin(1.0, 2 * (1 - u))); p.drawImage(0, 0, a); p.restore();
+    } else if (ty == "blurdissolve") {
+        // Both sides defocus toward the middle of the transition, where they cross.
+        const int radius = int(std::lround(std::sin(M_PI * u) * w / 28.0));
+        QImage a2 = a, b2 = b;
+        if (radius > 0) { ImageFx::boxBlur(a2, radius); ImageFx::boxBlur(b2, radius); }
+        paintDissolve(p, a2, b2, u);
     } else {
         paintDissolve(p, a, b, u);
     }
