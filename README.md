@@ -123,15 +123,31 @@ Auto-save versions, recovery files and crash reports live in the app data folder
 
 **Qt Creator:** open `CMakeLists.txt` with the *Desktop Qt 6.11.1 MinGW 64-bit* kit and run `appOpen_Editor`.
 
-**POSIX shell:**
+**Command line:** `build.sh` runs in Git Bash, MSYS2, Cygwin or WSL, from any folder. From PowerShell or cmd, use `build.cmd` with the same options. It runs `build.sh` through Git Bash, which avoids the WSL `bash` that PowerShell usually finds first.
 
 ```sh
-./build.sh                  # everything
+./build.sh                  # everything (Release, build/ninja-release)
 ./build.sh oe_engine_test   # one target
+./build.sh --test           # build, then run the headless test suites
+./build.sh --debug          # Debug build in build/ninja-debug
+./build.sh --clean          # delete the build folder and build from scratch
+./build.sh --reconfigure    # run CMake again, e.g. after installing a new Qt
+./build.sh -j 4 --verbose   # 4 jobs at once, show every compiler command
+./build.sh --help           # all options
+```
+
+```powershell
+.\build.cmd --test          # the same from PowerShell or cmd
 ```
 
 > [!NOTE]
-> `build.sh` expects Qt in `C:/Qt`. Edit the paths at the top of the script if yours is elsewhere.
+> `build.sh` finds the newest Qt 6 MinGW kit in `C:/Qt` or `D:/Qt`, and uses the MinGW, CMake and Ninja that come with it. Set environment variables to use others:
+>
+> - `QT_DIR` for the kit, e.g. `QT_DIR=C:/Qt/6.11.1/mingw_64 ./build.sh`
+> - `QT_ROOT` for a different Qt folder
+> - `MINGW_DIR`, `CMAKE` or `NINJA` for the tools
+>
+> If the project folder moves or the compiler is upgraded, the script configures again by itself. When a build fails, it tells you whether `OpenEditor.exe` is still running, since Windows won't let a running program be rebuilt.
 
 Project files are JSON with the `.oep` extension.
 
@@ -262,7 +278,7 @@ The engine has no widgets, so the app and the headless tests share it through th
 | `OpenEditor --text-test <outdir> <model> <media> <expected phrases...>` | Transcribe, then delete words with the real key |
 | `OpenEditor --ai-test <outdir>` | MCP over real HTTP, token and origin checks, stdio bridge, assistant loop against a local mock |
 
-The two headless suites are registered with CTest:
+The five headless suites (engine, features, v2, text, v3) are registered with CTest. `./build.sh --test` builds them and runs them all, or run CTest directly:
 
 ```sh
 ctest --test-dir build/ninja-release --output-on-failure
